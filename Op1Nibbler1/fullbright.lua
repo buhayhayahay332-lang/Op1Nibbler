@@ -2,7 +2,7 @@ local Lighting = game:GetService("Lighting")
 
 local Module = {
     _initialized = false,
-    _enabled = false,
+    _enabled = true,
     _connections = {},
     _normal = nil,
     _fullbright = {
@@ -65,6 +65,9 @@ function Module:init(force)
 
     self:_captureNormal()
     self:_bindMonitors()
+    if self._enabled then
+        self:_apply(self._fullbright)
+    end
     self._initialized = true
     return true
 end

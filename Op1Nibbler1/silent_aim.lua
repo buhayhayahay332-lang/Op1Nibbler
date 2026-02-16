@@ -9,7 +9,7 @@ local Workspace = cloneref(game:GetService("Workspace"))
 local Module = {
     _initialized = false,
     _hooked = false,
-    _enabled = false,
+    _enabled = true,
     _gunModule = nil,
     _originalGetShootLook = nil,
     _fovRadius = 60,
@@ -60,13 +60,14 @@ function Module:_getClosestTarget()
     local viewmodelsFolder = Workspace:FindFirstChild("Viewmodels")
     if self._targetPlayers and viewmodelsFolder then
         for _, vm in ipairs(viewmodelsFolder:GetChildren()) do
-            if vm:IsA("Model") and vm.Name ~= "LocalViewmodel" then
+            if vm:IsA("Model") and vm.Name ~= "LocalViewmodel" and vm.Name == "Viewmodel" then
                 local torso = vm:FindFirstChild("torso")
-                if not torso or torso.Transparency ~= 1 then
-                    for _, partName in ipairs(TARGET_PARTS) do
-                        local part = vm:FindFirstChild(partName)
-                        closestPart, closestDistSq = checkPart(camera, part, mousePos, closestPart, closestDistSq, fovRadiusSq)
-                    end
+                if not torso or torso.Transparency == 1 then
+                    continue
+                end
+                for _, partName in ipairs(TARGET_PARTS) do
+                    local part = vm:FindFirstChild(partName)
+                    closestPart, closestDistSq = checkPart(camera, part, mousePos, closestPart, closestDistSq, fovRadiusSq)
                 end
             end
         end
