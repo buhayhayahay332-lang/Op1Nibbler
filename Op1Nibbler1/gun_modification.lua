@@ -59,26 +59,6 @@ function Module:_setAutomaticValue(target, value)
     return nil
 end
 
-function Module:_applyForceAutoToGun(gun, value)
-    if not gun then
-        return
-    end
-
-    if gun.automatic ~= nil then
-        local replacement = self:_setAutomaticValue(gun.automatic, value)
-        if replacement ~= nil then
-            gun.automatic = replacement
-        end
-    end
-
-    if gun.states and gun.states.automatic ~= nil then
-        local replacement = self:_setAutomaticValue(gun.states.automatic, value)
-        if replacement ~= nil then
-            gun.states.automatic = replacement
-        end
-    end
-end
-
 function Module:_applyForceAutoToModule(value)
     if not self._gunModule then
         return
@@ -242,10 +222,6 @@ function Module:_installHooks()
             return callOriginal(self._original.recoil_function, gun, owner)
         end
 
-        if self.config.force_auto then
-            self:_applyForceAutoToGun(gun, true)
-        end
-
         local real_states = gun.states
         local proxy_states = { __real_states = real_states }
         setmetatable(proxy_states, recoil_proxy_mt)
@@ -258,10 +234,6 @@ function Module:_installHooks()
     self._gunModule.send_shoot = newcclosure(function(gun)
         if not gun or not gun.states then
             return callOriginal(self._original.send_shoot, gun)
-        end
-
-        if self.config.force_auto then
-            self:_applyForceAutoToGun(gun, true)
         end
 
         local real_states = gun.states
@@ -281,10 +253,6 @@ function Module:_installHooks()
             return callOriginal(self._original.input_render, gun, ...)
         end
 
-        if self.config.force_auto then
-            self:_applyForceAutoToGun(gun, true)
-        end
-
         local real_states = gun.states
         local proxy_states = { __real_states = real_states }
         setmetatable(proxy_states, firerate_proxy_mt)
@@ -297,10 +265,6 @@ function Module:_installHooks()
     self._gunModule.reload_begin = newcclosure(function(gun, ...)
         if not gun or not gun.states then
             return callOriginal(self._original.reload_begin, gun, ...)
-        end
-
-        if self.config.force_auto then
-            self:_applyForceAutoToGun(gun, true)
         end
 
         local real_states = gun.states
@@ -317,10 +281,6 @@ function Module:_installHooks()
             return callOriginal(self._original.sights, gun, ...)
         end
 
-        if self.config.force_auto then
-            self:_applyForceAutoToGun(gun, true)
-        end
-
         local real_states = gun.states
         local proxy_states = { __real_states = real_states }
         setmetatable(proxy_states, sights_proxy_mt)
@@ -333,10 +293,6 @@ function Module:_installHooks()
     self._gunModule.update_sight_lens = newcclosure(function(gun, ...)
         if not gun or not gun.states then
             return callOriginal(self._original.update_sight_lens, gun, ...)
-        end
-
-        if self.config.force_auto then
-            self:_applyForceAutoToGun(gun, true)
         end
 
         local real_states = gun.states

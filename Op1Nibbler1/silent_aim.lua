@@ -26,6 +26,19 @@ local TARGET_PARTS = {
     "leg1", "leg2", "Sleeve", "Glove", "Boot",
 }
 
+local function isCallable(value)
+    if type(value) == "function" then
+        return true
+    end
+
+    if type(value) == "table" then
+        local mt = getmetatable(value)
+        return mt ~= nil and type(mt.__call) == "function"
+    end
+
+    return false
+end
+
 local function checkPart(camera, part, mousePos, closestPart, closestDistSq, fovRadiusSq)
     if not part or not part:IsA("BasePart") then
         return closestPart, closestDistSq
@@ -129,14 +142,16 @@ function Module:_installHook()
 
     self._gunModule = gunModuleOrErr
     local originalRef = self._gunModule.get_shoot_look
-    if type(originalRef) ~= "function" then
+    if not isCallable(originalRef) then
         return false, "get_shoot_look is not callable"
     end
-    self._originalGetShootLook = clonefunction(originalRef)
+    self._originalGetShootLook = type(originalRef) == "function" and clonefunction(originalRef) or originalRef
 
     self._gunModule.get_shoot_look = setmetatable({}, {
         __call = newcclosure(function(_, weapon)
-            local okOriginal, originalCFrame = pcall(self._originalGetShootLook, weapon)
+            local okOriginal, originalCFrame = pcall(function()
+                return self._originalGetShootLook(weapon)
+            end)
             if not okOriginal or typeof(originalCFrame) ~= "CFrame" then
                 return CFrame.new()
             end
