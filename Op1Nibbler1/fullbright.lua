@@ -2,7 +2,7 @@ local Lighting = game:GetService("Lighting")
 
 local Module = {
     _initialized = false,
-    _enabled = true,
+    _enabled = false,
     _connections = {},
     _normal = nil,
     _fullbright = {

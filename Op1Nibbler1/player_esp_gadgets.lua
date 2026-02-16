@@ -3,10 +3,10 @@ local Workspace = game:GetService("Workspace")
 
 local Module = {
     _initialized = false,
-    _enabled = true,
-    _teamCheck = true,
-    _playerBoxEnabled = true,
-    _objectBoxEnabled = true,
+    _enabled = false,
+    _teamCheck = false,
+    _playerBoxEnabled = false,
+    _objectBoxEnabled = false,
     _playerColor = Color3.fromRGB(210, 50, 80),
     _droneColor = Color3.fromRGB(0, 255, 255),
     _claymoreColor = Color3.fromRGB(255, 0, 0),
@@ -351,10 +351,10 @@ function Module:init(force)
         self:unload()
     end
 
-    self._enabled = true
-    self._teamCheck = true
-    self._playerBoxEnabled = true
-    self._objectBoxEnabled = true
+    self._enabled = false
+    self._teamCheck = false
+    self._playerBoxEnabled = false
+    self._objectBoxEnabled = false
 
     self:_updateTeamCache()
     self:_scanInitial()

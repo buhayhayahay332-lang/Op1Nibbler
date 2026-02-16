@@ -17,7 +17,7 @@ local Instance_new = clonefunction(Instance.new)
 
 local Module = {
     _initialized = false,
-    _enabled = true,
+    _enabled = false,
     _teamCheck = true,
     _globalConnections = {},
     _viewmodelConnections = {},

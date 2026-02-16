@@ -6,19 +6,19 @@ local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 
 local Module = {
     _initialized = false,
-    _enabled = true,
+    _enabled = false,
     _gunModule = nil,
     _original = {},
     _originalAutomatic = nil,
     config = {
         recoil_reduction = 0,
         horizontal_recoil = 0,
-        no_spread = true,
+        no_spread = false,
         accuracy_multiplier = 1,
         custom_firerate = 1200,
         reload_speed = 0.1,
-        force_auto = true,
-        instant_ads = true,
+        force_auto = false,
+        instant_ads = false,
         custom_zoom = 1.5,
     },
 }
