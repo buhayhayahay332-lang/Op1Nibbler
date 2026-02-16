@@ -3,11 +3,11 @@ local UILIB_URLS = {
 }
 
 local MODULE_SOURCES = {
-    fullbright = { local_path = "fullbright.lua", url = "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/fullbright.lua" },
-    gun_modification = { local_path = "gun_modification.lua", url = "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/gun_modification.lua" },
-    hitbox = { local_path = "hitbox.lua", url = "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/hitbox.lua" },
-    player_esp_gadgets = { local_path = "player_esp_gadgets.lua", url = "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/player_esp_gadgets.lua" },
-    silent_aim = { local_path = "silent_aim.lua", url = "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/silent_aim.lua" },
+    fullbright = { local_path = "fullbright.lua", url = "https://github.com/buhayhayahay332-lang/Op1Nibbler/raw/refs/heads/main/Op1Nibbler1/fullbright.lua" },
+    gun_modification = { local_path = "gun_modification.lua", url = "https://github.com/buhayhayahay332-lang/Op1Nibbler/raw/refs/heads/main/Op1Nibbler1/gun_modification.lua" },
+    hitbox = { local_path = "hitbox.lua", url = "https://github.com/buhayhayahay332-lang/Op1Nibbler/raw/refs/heads/main/Op1Nibbler1/hitbox.lua" },
+    player_esp_gadgets = { local_path = "player_esp_gadgets.lua", url = "https://github.com/buhayhayahay332-lang/Op1Nibbler/raw/refs/heads/main/Op1Nibbler1/player_esp_gadgets.lua" },
+    silent_aim = { local_path = "silent_aim.lua", url = "https://github.com/buhayhayahay332-lang/Op1Nibbler/raw/refs/heads/main/Op1Nibbler1/silent_aim.lua" },
 }
 
 local moduleCache = {}
