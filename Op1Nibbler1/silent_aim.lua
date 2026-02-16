@@ -26,19 +26,6 @@ local TARGET_PARTS = {
     "leg1", "leg2", "Sleeve", "Glove", "Boot",
 }
 
-local function isCallable(value)
-    if type(value) == "function" then
-        return true
-    end
-
-    if type(value) == "table" then
-        local mt = getmetatable(value)
-        return mt ~= nil and type(mt.__call) == "function"
-    end
-
-    return false
-end
-
 local function checkPart(camera, part, mousePos, closestPart, closestDistSq, fovRadiusSq)
     if not part or not part:IsA("BasePart") then
         return closestPart, closestDistSq
@@ -73,14 +60,13 @@ function Module:_getClosestTarget()
     local viewmodelsFolder = Workspace:FindFirstChild("Viewmodels")
     if self._targetPlayers and viewmodelsFolder then
         for _, vm in ipairs(viewmodelsFolder:GetChildren()) do
-            if vm:IsA("Model") and vm.Name ~= "LocalViewmodel" and vm.Name == "Viewmodel" then
+            if vm:IsA("Model") and vm.Name ~= "LocalViewmodel" then
                 local torso = vm:FindFirstChild("torso")
-                if not torso or torso.Transparency == 1 then
-                    continue
-                end
-                for _, partName in ipairs(TARGET_PARTS) do
-                    local part = vm:FindFirstChild(partName)
-                    closestPart, closestDistSq = checkPart(camera, part, mousePos, closestPart, closestDistSq, fovRadiusSq)
+                if not torso or torso.Transparency ~= 1 then
+                    for _, partName in ipairs(TARGET_PARTS) do
+                        local part = vm:FindFirstChild(partName)
+                        closestPart, closestDistSq = checkPart(camera, part, mousePos, closestPart, closestDistSq, fovRadiusSq)
+                    end
                 end
             end
         end
@@ -143,16 +129,14 @@ function Module:_installHook()
 
     self._gunModule = gunModuleOrErr
     local originalRef = self._gunModule.get_shoot_look
-    if not isCallable(originalRef) then
+    if type(originalRef) ~= "function" then
         return false, "get_shoot_look is not callable"
     end
-    self._originalGetShootLook = type(originalRef) == "function" and clonefunction(originalRef) or originalRef
+    self._originalGetShootLook = clonefunction(originalRef)
 
     self._gunModule.get_shoot_look = setmetatable({}, {
         __call = newcclosure(function(_, weapon)
-            local okOriginal, originalCFrame = pcall(function()
-                return self._originalGetShootLook(weapon)
-            end)
+            local okOriginal, originalCFrame = pcall(self._originalGetShootLook, weapon)
             if not okOriginal or typeof(originalCFrame) ~= "CFrame" then
                 return CFrame.new()
             end

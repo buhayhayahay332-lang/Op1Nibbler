@@ -65,9 +65,6 @@ function Module:init(force)
 
     self:_captureNormal()
     self:_bindMonitors()
-    if self._enabled then
-        self:_apply(self._fullbright)
-    end
     self._initialized = true
     return true
 end
