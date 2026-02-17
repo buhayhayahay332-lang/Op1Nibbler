@@ -2,11 +2,16 @@ return function(_)
     local USE_PROPERTY_SPOOFING = true
 
     -- services
-    local cloneref = cloneref or function(obj) return obj end
-    local clonefunction = clonefunction or function(fn) return fn end
+    local cloneref = cloneref or function(obj)
+        return obj
+    end
+    local clonefunction = clonefunction or function(fn)
+        return fn
+    end
     local Workspace = cloneref(game:GetService("Workspace"))
     local Players = cloneref(game:GetService("Players"))
     local UserInputService = cloneref(game:GetService("UserInputService"))
+    local RunService = cloneref(game:GetService("RunService"))
     local task_delay = clonefunction(task.delay)
     local table_insert = clonefunction(table.insert)
     local tick = clonefunction(tick)
@@ -16,7 +21,9 @@ return function(_)
     local Vector3_new = clonefunction(Vector3.new)
     local Color3_fromRGB = clonefunction(Color3.fromRGB)
     local Instance_new = clonefunction(Instance.new)
-    local newcclosure = newcclosure or function(f) return f end
+    local newcclosure = newcclosure or function(f)
+        return f
+    end
 
     -- viewmodels folder
     local ViewmodelsFolder = Workspace:WaitForChild("Viewmodels")
@@ -42,19 +49,26 @@ return function(_)
     }
 
     -- hooks
-    local hookfunction = hookfunction or function(f, r) return f end
+    local hookfunction = hookfunction or function(f, r)
+        return f
+    end
 
-    local old_GetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
-        if originalData[self] and (property == "Size" or property == "Transparency" or property == "Color") then
-            return Instance_new("BindableEvent").Event
-        end
-        return old_GetPropertyChangedSignal(self, property)
-    end))
+    local old_GetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal,
+        newcclosure(function(self, property)
+            if originalData[self] and (property == "Size" or property == "Transparency" or property == "Color") then
+                return Instance_new("BindableEvent").Event
+            end
+            return old_GetPropertyChangedSignal(self, property)
+        end))
 
     if USE_PROPERTY_SPOOFING then
-        local hookmetamethod = hookmetamethod or function() end
-        local getrawmetatable = getrawmetatable or function() return {} end
-        local setreadonly = setreadonly or function() end
+        local hookmetamethod = hookmetamethod or function()
+        end
+        local getrawmetatable = getrawmetatable or function()
+            return {}
+        end
+        local setreadonly = setreadonly or function()
+        end
 
         local mt = getrawmetatable(game)
         local old_index = mt.__index
@@ -82,6 +96,7 @@ return function(_)
     -- team filtering
     local teamCache = {}
     local lastCacheUpdate = 0
+    local CACHE_INTERVAL = 0.7
 
     local updateTeamCache = newcclosure(function()
         teamCache = {}
@@ -96,7 +111,7 @@ return function(_)
         if not M.teamCheck then
             return false
         end
-        if tick() - lastCacheUpdate > 0.5 then
+        if tick() - lastCacheUpdate > CACHE_INTERVAL then
             updateTeamCache()
             lastCacheUpdate = tick()
         end
@@ -105,14 +120,30 @@ return function(_)
 
     -- hitboxes
     local shouldModify = newcclosure(function(vm)
-        if vm.Name == "LocalViewmodel" then return false end
+        if not ENABLED then
+            return false
+        end
+        if not vm or not vm:IsA("Model") or not vm:IsDescendantOf(Workspace) then
+            return false
+        end
+        if vm.Name == "LocalViewmodel" then
+            return false
+        end
+        local head = vm:FindFirstChild("head")
         local torso = vm:FindFirstChild("torso")
-        if not torso or torso.Transparency == 1 then return false end
+        if not head or not torso then
+            return false
+        end
+        if torso.Transparency > 0.95 then
+            return false
+        end
         return not isTeammate(vm)
     end)
 
     local applyHitbox = newcclosure(function(head)
-        if not ENABLED or not head or head.Name ~= "head" then return end
+        if not ENABLED or not head or head.Name ~= "head" then
+            return
+        end
 
         if not originalData[head] then
             originalData[head] = {
@@ -142,11 +173,30 @@ return function(_)
         end
     end)
 
+    local syncViewmodelHitbox = newcclosure(function(vm)
+        if not vm or not vm:IsA("Model") then
+            return
+        end
+
+        local head = vm:FindFirstChild("head")
+        if not head then
+            return
+        end
+
+        if shouldModify(vm) then
+            applyHitbox(head)
+        else
+            resetHead(head)
+        end
+    end)
+
     -- cleanups
     local cleanupViewmodel = newcclosure(function(vm)
         if viewmodelConnections[vm] then
             for _, conn in ipairs(viewmodelConnections[vm]) do
-                pcall(function() conn:Disconnect() end)
+                pcall(function()
+                    conn:Disconnect()
+                end)
             end
             viewmodelConnections[vm] = nil
         end
@@ -160,27 +210,45 @@ return function(_)
 
     -- init
     local processViewmodel = newcclosure(function(vm)
-        if not shouldModify(vm) then return end
+        if vm.Name == "LocalViewmodel" then
+            return
+        end
+
+        if viewmodelConnections[vm] then
+            return
+        end
 
         viewmodelConnections[vm] = {}
 
         task_delay(0.1, newcclosure(function()
-            if shouldModify(vm) then
-                local head = vm:FindFirstChild("head")
-                if head then applyHitbox(head) end
-            end
+            syncViewmodelHitbox(vm)
         end))
 
         local childAddedConn = vm.ChildAdded:Connect(newcclosure(function(child)
-            if child.Name == "head" then
+            if child.Name == "head" or child.Name == "torso" then
                 task_delay(0.05, newcclosure(function()
-                    if shouldModify(vm) then
-                        applyHitbox(child)
-                    end
+                    syncViewmodelHitbox(vm)
                 end))
             end
         end))
         table_insert(viewmodelConnections[vm], childAddedConn)
+
+        local childRemovedConn = vm.ChildRemoved:Connect(newcclosure(function(child)
+            if child.Name == "head" or child.Name == "torso" then
+                task_delay(0.05, newcclosure(function()
+                    syncViewmodelHitbox(vm)
+                end))
+            end
+        end))
+        table_insert(viewmodelConnections[vm], childRemovedConn)
+
+        local torso = vm:FindFirstChild("torso")
+        if torso then
+            local torsoConn = torso:GetPropertyChangedSignal("Transparency"):Connect(newcclosure(function()
+                syncViewmodelHitbox(vm)
+            end))
+            table_insert(viewmodelConnections[vm], torsoConn)
+        end
 
         local ancestryConn = vm.AncestryChanged:Connect(newcclosure(function(_, parent)
             if not parent then
@@ -198,8 +266,12 @@ return function(_)
 
         if ENABLED then
             updateTeamCache()
+            lastCacheUpdate = tick()
             for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
-                if vm:IsA("Model") then processViewmodel(vm) end
+                if vm:IsA("Model") then
+                    processViewmodel(vm)
+                    syncViewmodelHitbox(vm)
+                end
             end
         else
             for vm in pairs(viewmodelConnections) do
@@ -224,8 +296,28 @@ return function(_)
     end)))
 
     for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
-        if vm:IsA("Model") then processViewmodel(vm) end
+        if vm:IsA("Model") then
+            processViewmodel(vm)
+        end
     end
+
+    table_insert(globalConnections, RunService.Heartbeat:Connect(newcclosure(function()
+        if not ENABLED then
+            return
+        end
+
+        if tick() - lastCacheUpdate > CACHE_INTERVAL then
+            updateTeamCache()
+            lastCacheUpdate = tick()
+        end
+
+        for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+            if vm:IsA("Model") then
+                processViewmodel(vm)
+                syncViewmodelHitbox(vm)
+            end
+        end
+    end)))
 
     table_insert(globalConnections, Workspace.CurrentCamera.ChildAdded:Connect(newcclosure(function(part)
         if part:IsA("BasePart") and part.Name == "head" then
@@ -244,16 +336,30 @@ return function(_)
     end
 
     -- Toggle keybind
-    table_insert(globalConnections, UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
-        if not processed and input.KeyCode == TOGGLE_KEY then
-            toggle()
-        end
-    end)))
+    table_insert(globalConnections, UserInputService.InputBegan:Connect(
+        newcclosure(function(input, processed)
+            if not processed and input.KeyCode == TOGGLE_KEY then
+                toggle()
+            end
+        end)))
 
     function M:SetEnabled(state)
         state = state and true or false
         if state ~= ENABLED then
             toggle()
+        end
+    end
+
+    function M:SetTeamCheck(value)
+        M.teamCheck = value and true or false
+        if ENABLED then
+            updateTeamCache()
+            lastCacheUpdate = tick()
+            for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+                if vm:IsA("Model") then
+                    syncViewmodelHitbox(vm)
+                end
+            end
         end
     end
 

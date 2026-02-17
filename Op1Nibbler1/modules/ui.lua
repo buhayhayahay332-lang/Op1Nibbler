@@ -32,45 +32,211 @@ return function(ctx, Modules)
     }
 
     local Gun = Tabs.Combat:AddLeftGroupbox("Gun Mods")
-    Gun:AddToggle("gm_en", { Text = "Enable Gun Mods", Default = Modules.GunMods.enabled }):OnChanged(function(v) Modules.GunMods:SetEnabled(v) end)
-    Gun:AddSlider("gm_recoil", { Text = "Recoil Mult", Default = Modules.GunMods.recoilReduction, Min = 0, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.GunMods:SetRecoilReduction(v) end)
-    Gun:AddSlider("gm_hrecoil", { Text = "Horizontal Recoil", Default = Modules.GunMods.horizontalRecoil, Min = 0, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.GunMods:SetHorizontalRecoil(v) end)
-    Gun:AddToggle("gm_nospread", { Text = "No Spread", Default = Modules.GunMods.noSpread }):OnChanged(function(v) Modules.GunMods:SetNoSpread(v) end)
-    Gun:AddSlider("gm_acc", { Text = "Accuracy", Default = Modules.GunMods.accuracyMultiplier, Min = 0, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.GunMods:SetAccuracyMultiplier(v) end)
-    Gun:AddSlider("gm_rate", { Text = "Firerate", Default = Modules.GunMods.customFirerate, Min = 100, Max = 3000, Rounding = 0 }):OnChanged(function(v) Modules.GunMods:SetCustomFirerate(v) end)
-    Gun:AddSlider("gm_reload", { Text = "Reload", Default = Modules.GunMods.reloadSpeed, Min = 0.05, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.GunMods:SetReloadSpeed(v) end)
-    Gun:AddToggle("gm_auto", { Text = "Force Auto", Default = Modules.GunMods.forceAuto }):OnChanged(function(v) Modules.GunMods:SetForceAuto(v) end)
-    Gun:AddToggle("gm_ads", { Text = "Instant ADS", Default = Modules.GunMods.instantADS }):OnChanged(function(v) Modules.GunMods:SetInstantADS(v) end)
-    Gun:AddSlider("gm_zoom", { Text = "Zoom", Default = Modules.GunMods.customZoom, Min = 1, Max = 4, Rounding = 2 }):OnChanged(function(v) Modules.GunMods:SetCustomZoom(v) end)
+    Gun:AddToggle("gm_en", {
+        Text = "Enable Gun Mods",
+        Default = Modules.GunMods.enabled
+    }):OnChanged(function(v)
+        Modules.GunMods:SetEnabled(v)
+    end)
+    Gun:AddSlider("gm_recoil", {
+        Text = "Recoil Mult",
+        Default = Modules.GunMods.recoilReduction,
+        Min = 0,
+        Max = 1,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.GunMods:SetRecoilReduction(v)
+    end)
+    Gun:AddSlider("gm_hrecoil", {
+        Text = "Horizontal Recoil",
+        Default = Modules.GunMods.horizontalRecoil,
+        Min = 0,
+        Max = 1,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.GunMods:SetHorizontalRecoil(v)
+    end)
+    Gun:AddToggle("gm_nospread", {
+        Text = "No Spread",
+        Default = Modules.GunMods.noSpread
+    }):OnChanged(function(v)
+        Modules.GunMods:SetNoSpread(v)
+    end)
+    Gun:AddSlider("gm_acc", {
+        Text = "Accuracy",
+        Default = Modules.GunMods.accuracyMultiplier,
+        Min = 0,
+        Max = 1,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.GunMods:SetAccuracyMultiplier(v)
+    end)
+    Gun:AddSlider("gm_rate", {
+        Text = "Firerate",
+        Default = Modules.GunMods.customFirerate,
+        Min = 100,
+        Max = 3000,
+        Rounding = 0
+    }):OnChanged(function(v)
+        Modules.GunMods:SetCustomFirerate(v)
+    end)
+    Gun:AddSlider("gm_reload", {
+        Text = "Reload",
+        Default = Modules.GunMods.reloadSpeed,
+        Min = 0.05,
+        Max = 1,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.GunMods:SetReloadSpeed(v)
+    end)
+    Gun:AddToggle("gm_auto", {
+        Text = "Force Auto",
+        Default = Modules.GunMods.forceAuto
+    }):OnChanged(function(v)
+        Modules.GunMods:SetForceAuto(v)
+    end)
+    Gun:AddToggle("gm_ads", {
+        Text = "Instant ADS",
+        Default = Modules.GunMods.instantADS
+    }):OnChanged(function(v)
+        Modules.GunMods:SetInstantADS(v)
+    end)
+    Gun:AddSlider("gm_zoom", {
+        Text = "Zoom",
+        Default = Modules.GunMods.customZoom,
+        Min = 1,
+        Max = 4,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.GunMods:SetCustomZoom(v)
+    end)
 
     local SA = Tabs.Combat:AddRightGroupbox("Silent Aim")
-    SA:AddToggle("sa_en", { Text = "Enable Silent Aim", Default = Modules.SilentAim.enabled }):OnChanged(function(v) Modules.SilentAim:SetEnabled(v) end)
-    SA:AddSlider("sa_fov", { Text = "FOV", Default = Modules.SilentAim.fov, Min = 20, Max = 1000, Rounding = 0 }):OnChanged(function(v) Modules.SilentAim:SetFov(v) end)
-    SA:AddSlider("sa_smooth", { Text = "Smoothness", Default = Modules.SilentAim.smoothness, Min = 0.05, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.SilentAim:SetSmoothness(v) end)
-    SA:AddToggle("sa_p", { Text = "Target Players", Default = Modules.SilentAim.targetPlayers }):OnChanged(function(v) Modules.SilentAim:SetTargetPlayers(v) end)
-    SA:AddToggle("sa_g", { Text = "Target Gadgets", Default = Modules.SilentAim.targetGadgets }):OnChanged(function(v) Modules.SilentAim:SetTargetGadgets(v) end)
-    SA:AddToggle("sa_c", { Text = "Target Cameras", Default = Modules.SilentAim.targetCameras }):OnChanged(function(v) Modules.SilentAim:SetTargetCameras(v) end)
+    SA:AddToggle("sa_en", {
+        Text = "Enable Silent Aim",
+        Default = Modules.SilentAim.enabled
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetEnabled(v)
+    end)
+    SA:AddSlider("sa_fov", {
+        Text = "FOV",
+        Default = Modules.SilentAim.fov,
+        Min = 20,
+        Max = 1000,
+        Rounding = 0
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetFov(v)
+    end)
+    SA:AddSlider("sa_smooth", {
+        Text = "Smoothness",
+        Default = Modules.SilentAim.smoothness,
+        Min = 0.05,
+        Max = 1,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetSmoothness(v)
+    end)
+    SA:AddToggle("sa_p", {
+        Text = "Target Players",
+        Default = Modules.SilentAim.targetPlayers
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetTargetPlayers(v)
+    end)
+    SA:AddToggle("sa_g", {
+        Text = "Target Gadgets",
+        Default = Modules.SilentAim.targetGadgets
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetTargetGadgets(v)
+    end)
+    SA:AddToggle("sa_c", {
+        Text = "Target Cameras",
+        Default = Modules.SilentAim.targetCameras
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetTargetCameras(v)
+    end)
 
     local HB = Tabs.Combat:AddRightGroupbox("Hitbox")
-    HB:AddToggle("hb_en", { Text = "Enable Hitbox", Default = Modules.Hitbox.enabled }):OnChanged(function(v) Modules.Hitbox:SetEnabled(v) end)
-    HB:AddToggle("hb_team", { Text = "Team Check", Default = Modules.Hitbox.teamCheck }):OnChanged(function(v) Modules.Hitbox.teamCheck = v end)
-    HB:AddSlider("hb_size", { Text = "Size", Default = Modules.Hitbox.size, Min = 1, Max = 10, Rounding = 1 }):OnChanged(function(v) Modules.Hitbox:SetSize(v) end)
-    HB:AddSlider("hb_t", { Text = "Transparency", Default = Modules.Hitbox.transparency, Min = 0, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.Hitbox:SetTransparency(v) end)
+    HB:AddToggle("hb_en", {
+        Text = "Enable Hitbox",
+        Default = Modules.Hitbox.enabled
+    }):OnChanged(function(v)
+        Modules.Hitbox:SetEnabled(v)
+    end)
+    HB:AddToggle("hb_team", {
+        Text = "Team Check",
+        Default = Modules.Hitbox.teamCheck
+    }):OnChanged(function(v)
+        Modules.Hitbox:SetTeamCheck(v)
+    end)
+    HB:AddSlider("hb_size", {
+        Text = "Size",
+        Default = Modules.Hitbox.size,
+        Min = 1,
+        Max = 10,
+        Rounding = 1
+    }):OnChanged(function(v)
+        Modules.Hitbox:SetSize(v)
+    end)
+    HB:AddSlider("hb_t", {
+        Text = "Transparency",
+        Default = Modules.Hitbox.transparency,
+        Min = 0,
+        Max = 1,
+        Rounding = 2
+    }):OnChanged(function(v)
+        Modules.Hitbox:SetTransparency(v)
+    end)
     HB:AddLabel("Hitbox Color"):AddColorPicker("hb_color", {
-    Default = Modules.Hitbox.color,
-    Title = "Hitbox Color",
-    Callback = function(v)
-        Modules.Hitbox:SetColor(v)
-    end
+        Default = Modules.Hitbox.color,
+        Title = "Hitbox Color",
+        Callback = function(v)
+            Modules.Hitbox:SetColor(v)
+        end
     })
 
     local ESP = Tabs.Visuals:AddLeftGroupbox("ESP")
-    ESP:AddToggle("esp_en", { Text = "Enable ESP", Default = Modules.ESP.enabled }):OnChanged(function(v) Modules.ESP:SetEnabled(v) end)
-    ESP:AddToggle("esp_team", { Text = "Team Check", Default = Modules.ESP.teamCheck }):OnChanged(function(v) Modules.ESP:SetTeamCheck(v) end)
-    ESP:AddToggle("esp_player", { Text = "Player Boxes", Default = Modules.ESP.playerBoxEnabled }):OnChanged(function(v) Modules.ESP:SetPlayerBoxEnabled(v) end)
-    ESP:AddToggle("esp_object", { Text = "Object Boxes", Default = Modules.ESP.objectBoxEnabled }):OnChanged(function(v) Modules.ESP:SetObjectBoxEnabled(v) end)
-    ESP:AddSlider("esp_pt", { Text = "Player Thickness", Default = Modules.ESP.playerThickness, Min = 1, Max = 5, Rounding = 1 }):OnChanged(function(v) Modules.ESP:SetPlayerThickness(v) end)
-    ESP:AddSlider("esp_ot", { Text = "Object Thickness", Default = Modules.ESP.objectThickness, Min = 1, Max = 5, Rounding = 1 }):OnChanged(function(v) Modules.ESP:SetObjectThickness(v) end)
+    ESP:AddToggle("esp_en", {
+        Text = "Enable ESP",
+        Default = Modules.ESP.enabled
+    }):OnChanged(function(v)
+        Modules.ESP:SetEnabled(v)
+    end)
+    ESP:AddToggle("esp_team", {
+        Text = "Team Check",
+        Default = Modules.ESP.teamCheck
+    }):OnChanged(function(v)
+        Modules.ESP:SetTeamCheck(v)
+    end)
+    ESP:AddToggle("esp_player", {
+        Text = "Player Boxes",
+        Default = Modules.ESP.playerBoxEnabled
+    }):OnChanged(function(v)
+        Modules.ESP:SetPlayerBoxEnabled(v)
+    end)
+    ESP:AddToggle("esp_object", {
+        Text = "Object Boxes",
+        Default = Modules.ESP.objectBoxEnabled
+    }):OnChanged(function(v)
+        Modules.ESP:SetObjectBoxEnabled(v)
+    end)
+    ESP:AddSlider("esp_pt", {
+        Text = "Player Thickness",
+        Default = Modules.ESP.playerThickness,
+        Min = 1,
+        Max = 5,
+        Rounding = 1
+    }):OnChanged(function(v)
+        Modules.ESP:SetPlayerThickness(v)
+    end)
+    ESP:AddSlider("esp_ot", {
+        Text = "Object Thickness",
+        Default = Modules.ESP.objectThickness,
+        Min = 1,
+        Max = 5,
+        Rounding = 1
+    }):OnChanged(function(v)
+        Modules.ESP:SetObjectThickness(v)
+    end)
 
     local ESPColors = Tabs.Visuals:AddRightGroupbox("ESP Colors")
     ESPColors:AddLabel("Players"):AddColorPicker("esp_pc", {
@@ -110,17 +276,43 @@ return function(ctx, Modules)
     })
 
     local WR = Tabs.World:AddLeftGroupbox("World")
-    WR:AddToggle("fb_en", { Text = "Fullbright", Default = Modules.Fullbright.enabled }):OnChanged(function(v) Modules.Fullbright:SetEnabled(v) end)
-    WR:AddSlider("fb_brightness", { Text = "Brightness", Default = Modules.Fullbright.brightness, Min = 0, Max = 10, Rounding = 2 }):OnChanged(function(v)
+    WR:AddToggle("fb_en", {
+        Text = "Fullbright",
+        Default = Modules.Fullbright.enabled
+    }):OnChanged(function(v)
+        Modules.Fullbright:SetEnabled(v)
+    end)
+    WR:AddSlider("fb_brightness", {
+        Text = "Brightness",
+        Default = Modules.Fullbright.brightness,
+        Min = 0,
+        Max = 10,
+        Rounding = 2
+    }):OnChanged(function(v)
         Modules.Fullbright:SetBrightness(v)
     end)
-    WR:AddSlider("fb_clock", { Text = "Clock Time", Default = Modules.Fullbright.clockTime, Min = 0, Max = 24, Rounding = 2 }):OnChanged(function(v)
+    WR:AddSlider("fb_clock", {
+        Text = "Clock Time",
+        Default = Modules.Fullbright.clockTime,
+        Min = 0,
+        Max = 24,
+        Rounding = 2
+    }):OnChanged(function(v)
         Modules.Fullbright:SetClockTime(v)
     end)
-    WR:AddSlider("fb_fog", { Text = "Fog End", Default = Modules.Fullbright.fogEnd, Min = 100, Max = 1000000, Rounding = 0 }):OnChanged(function(v)
+    WR:AddSlider("fb_fog", {
+        Text = "Fog End",
+        Default = Modules.Fullbright.fogEnd,
+        Min = 100,
+        Max = 1000000,
+        Rounding = 0
+    }):OnChanged(function(v)
         Modules.Fullbright:SetFogEnd(v)
     end)
-    WR:AddToggle("fb_shadows", { Text = "Global Shadows", Default = Modules.Fullbright.globalShadows }):OnChanged(function(v)
+    WR:AddToggle("fb_shadows", {
+        Text = "Global Shadows",
+        Default = Modules.Fullbright.globalShadows
+    }):OnChanged(function(v)
         Modules.Fullbright:SetGlobalShadows(v)
     end)
     WR:AddLabel("Ambient Color"):AddColorPicker("fb_ambient", {
@@ -132,7 +324,11 @@ return function(ctx, Modules)
     })
 
     local UIG = Tabs.UI:AddLeftGroupbox("Menu")
-    UIG:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", { Default = "RightControl", NoUI = true, Text = "Menu Keybind" })
+    UIG:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", {
+        Default = "RightControl",
+        NoUI = true,
+        Text = "Menu Keybind"
+    })
 
     if okTheme then
         ThemeManager:SetLibrary(Library)
@@ -142,7 +338,7 @@ return function(ctx, Modules)
     if okSave then
         SaveManager:SetLibrary(Library)
         SaveManager:IgnoreThemeSettings()
-        SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+        SaveManager:SetIgnoreIndexes({"MenuKeybind"})
         SaveManager:SetFolder("Op1Nibbler")
         SaveManager:BuildConfigSection(Tabs.UI)
     end

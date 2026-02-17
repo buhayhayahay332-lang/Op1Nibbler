@@ -26,9 +26,13 @@ return function(_)
     local CACHE_INTERVAL = 0.7
 
     local corners = {}
-    for i = 1, 8 do corners[i] = Vector3.new(0, 0, 0) end
+    for i = 1, 8 do
+        corners[i] = Vector3.new(0, 0, 0)
+    end
     local points = {}
-    for i = 1, 8 do points[i] = Vector3.new(0, 0, 0) end
+    for i = 1, 8 do
+        points[i] = Vector3.new(0, 0, 0)
+    end
 
     local playerBoxes = {}
     local objectBoxes = {}
@@ -77,7 +81,9 @@ return function(_)
     end
 
     local function isTeammate(model)
-        if not TEAM_CHECK then return false end
+        if not TEAM_CHECK then
+            return false
+        end
         local t = tick()
         if t - lastCache > CACHE_INTERVAL then
             updateTeamCache()
@@ -121,7 +127,9 @@ return function(_)
             end
         end
 
-        if not anyVisible then return nil end
+        if not anyVisible then
+            return nil
+        end
         return {
             position = Vector2.new(minX, minY),
             size = Vector2.new(maxX - minX, maxY - minY)
@@ -165,7 +173,9 @@ return function(_)
             end
         end
 
-        if not anyVisible then return nil end
+        if not anyVisible then
+            return nil
+        end
 
         local padding = 3
         return {
@@ -197,12 +207,18 @@ return function(_)
     end
 
     local function createPlayerBox(char)
-        if playerBoxes[char] then return end
-        if char.Name == "LocalViewmodel" then return end
+        if playerBoxes[char] then
+            return
+        end
+        if char.Name == "LocalViewmodel" then
+            return
+        end
 
         local head = char:FindFirstChild("head")
         local torso = char:FindFirstChild("torso")
-        if not head or not torso then return end
+        if not head or not torso then
+            return
+        end
 
         local box = Drawing.new("Square")
         box.Visible = false
@@ -248,7 +264,9 @@ return function(_)
                     headTransConn:Disconnect()
                     torsoTransConn:Disconnect()
                     data.box:Remove()
-                    if data.ancestryConn then data.ancestryConn:Disconnect() end
+                    if data.ancestryConn then
+                        data.ancestryConn:Disconnect()
+                    end
                     playerBoxes[char] = nil
                 end
             end
@@ -257,7 +275,9 @@ return function(_)
     end
 
     local function createObjectBox(obj)
-        if objectBoxes[obj] then return end
+        if objectBoxes[obj] then
+            return
+        end
 
         local box = Drawing.new("Square")
         box.Visible = false
@@ -291,7 +311,9 @@ return function(_)
                 local data = objectBoxes[obj]
                 if data then
                     data.box:Remove()
-                    if data.ancestryConn then data.ancestryConn:Disconnect() end
+                    if data.ancestryConn then
+                        data.ancestryConn:Disconnect()
+                    end
                     objectBoxes[obj] = nil
                 end
             end
@@ -321,7 +343,8 @@ return function(_)
         end)
 
         for _, child in ipairs(Workspace:GetChildren()) do
-            if child.Name == "Drone" or child.Name == "Claymore" or child.Name == "ProximityAlarm" or child.Name == "StickyCamera" then
+            if child.Name == "Drone" or child.Name == "Claymore" or child.Name == "ProximityAlarm" or child.Name ==
+                "StickyCamera" then
                 task.spawn(createObjectBox, child)
             end
         end
@@ -333,7 +356,8 @@ return function(_)
         end
 
         Workspace.ChildAdded:Connect(function(child)
-            if child.Name == "Drone" or child.Name == "Claymore" or child.Name == "ProximityAlarm" or child.Name == "StickyCamera" then
+            if child.Name == "Drone" or child.Name == "Claymore" or child.Name == "ProximityAlarm" or child.Name ==
+                "StickyCamera" then
                 task.spawn(createObjectBox, child)
             end
         end)
@@ -371,7 +395,9 @@ return function(_)
                         end
                     else
                         data.box:Remove()
-                        if data.ancestryConn then data.ancestryConn:Disconnect() end
+                        if data.ancestryConn then
+                            data.ancestryConn:Disconnect()
+                        end
                         playerBoxes[char] = nil
                     end
                 end
@@ -394,7 +420,9 @@ return function(_)
                         end
                     else
                         data.box:Remove()
-                        if data.ancestryConn then data.ancestryConn:Disconnect() end
+                        if data.ancestryConn then
+                            data.ancestryConn:Disconnect()
+                        end
                         objectBoxes[obj] = nil
                     end
                 end
@@ -408,7 +436,9 @@ return function(_)
         task.spawn(initialScan)
 
         UserInputService.InputBegan:Connect(function(input, gpe)
-            if gpe then return end
+            if gpe then
+                return
+            end
             if input.KeyCode == Enum.KeyCode.Insert then
                 ESP_ENABLED = not ESP_ENABLED
                 M.enabled = ESP_ENABLED

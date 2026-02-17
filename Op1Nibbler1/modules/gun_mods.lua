@@ -84,19 +84,31 @@ return function(ctx)
         return CONFIG.custom_zoom
     end)
 
-    local perfect_accuracy = { Value = CONFIG.accuracy_multiplier }
+    local perfect_accuracy = {
+        Value = CONFIG.accuracy_multiplier
+    }
 
     local recoil_proxy_mt = {
         __index = newcclosure(function(t, key)
             local real_states = rawget(t, "__real_states")
-            if not real_states then return nil end
+            if not real_states then
+                return nil
+            end
 
             local state = real_states[key]
             if typeof(state) == "table" and state.get then
                 if key == "recoil_up" then
-                    return { get = function() return recoil_up_get(state) end }
+                    return {
+                        get = function()
+                            return recoil_up_get(state)
+                        end
+                    }
                 elseif key == "recoil_side" then
-                    return { get = function() return recoil_side_get(state) end }
+                    return {
+                        get = function()
+                            return recoil_side_get(state)
+                        end
+                    }
                 end
             end
             return state
@@ -107,14 +119,24 @@ return function(ctx)
     local spread_firerate_proxy_mt = {
         __index = newcclosure(function(t, key)
             local real_states = rawget(t, "__real_states")
-            if not real_states then return nil end
+            if not real_states then
+                return nil
+            end
 
             local state = real_states[key]
             if typeof(state) == "table" and state.get then
                 if key == "spread" then
-                    return { get = function() return spread_get(state) end }
+                    return {
+                        get = function()
+                            return spread_get(state)
+                        end
+                    }
                 elseif key == "firerate" then
-                    return { get = function() return firerate_get(state) end }
+                    return {
+                        get = function()
+                            return firerate_get(state)
+                        end
+                    }
                 end
             end
             return state
@@ -125,11 +147,17 @@ return function(ctx)
     local firerate_proxy_mt = {
         __index = newcclosure(function(t, key)
             local real_states = rawget(t, "__real_states")
-            if not real_states then return nil end
+            if not real_states then
+                return nil
+            end
 
             local state = real_states[key]
             if typeof(state) == "table" and state.get and key == "firerate" then
-                return { get = function() return firerate_get(state) end }
+                return {
+                    get = function()
+                        return firerate_get(state)
+                    end
+                }
             end
             return state
         end),
@@ -139,11 +167,17 @@ return function(ctx)
     local reload_proxy_mt = {
         __index = newcclosure(function(t, key)
             local real_states = rawget(t, "__real_states")
-            if not real_states then return nil end
+            if not real_states then
+                return nil
+            end
 
             local state = real_states[key]
             if typeof(state) == "table" and state.get and key == "reload_speed" then
-                return { get = function() return reload_speed_get(state) end }
+                return {
+                    get = function()
+                        return reload_speed_get(state)
+                    end
+                }
             end
             return state
         end),
@@ -153,14 +187,24 @@ return function(ctx)
     local sights_proxy_mt = {
         __index = newcclosure(function(t, key)
             local real_states = rawget(t, "__real_states")
-            if not real_states then return nil end
+            if not real_states then
+                return nil
+            end
 
             local state = real_states[key]
             if typeof(state) == "table" and state.get then
                 if key == "ads" then
-                    return { get = function() return ads_get(state) end }
+                    return {
+                        get = function()
+                            return ads_get(state)
+                        end
+                    }
                 elseif key == "zoom" then
-                    return { get = function() return zoom_get(state) end }
+                    return {
+                        get = function()
+                            return zoom_get(state)
+                        end
+                    }
                 end
             end
             return state
@@ -189,7 +233,9 @@ return function(ctx)
             end
 
             local real_states = self.states
-            local proxy_states = { __real_states = real_states }
+            local proxy_states = {
+                __real_states = real_states
+            }
             setmetatable(proxy_states, recoil_proxy_mt)
             self.states = proxy_states
 
@@ -209,7 +255,9 @@ return function(ctx)
             local real_states = self.states
             local real_accuracy = self.accuracy
 
-            local proxy_states = { __real_states = real_states }
+            local proxy_states = {
+                __real_states = real_states
+            }
             setmetatable(proxy_states, spread_firerate_proxy_mt)
 
             self.states = proxy_states
@@ -233,7 +281,9 @@ return function(ctx)
             end
 
             local real_states = self.states
-            local proxy_states = { __real_states = real_states }
+            local proxy_states = {
+                __real_states = real_states
+            }
             setmetatable(proxy_states, firerate_proxy_mt)
             self.states = proxy_states
 
@@ -251,7 +301,9 @@ return function(ctx)
             end
 
             local real_states = self.states
-            local proxy_states = { __real_states = real_states }
+            local proxy_states = {
+                __real_states = real_states
+            }
             setmetatable(proxy_states, reload_proxy_mt)
             self.states = proxy_states
 
@@ -269,7 +321,9 @@ return function(ctx)
             end
 
             local real_states = self.states
-            local proxy_states = { __real_states = real_states }
+            local proxy_states = {
+                __real_states = real_states
+            }
             setmetatable(proxy_states, sights_proxy_mt)
             self.states = proxy_states
 
@@ -287,7 +341,9 @@ return function(ctx)
             end
 
             local real_states = self.states
-            local proxy_states = { __real_states = real_states }
+            local proxy_states = {
+                __real_states = real_states
+            }
             setmetatable(proxy_states, sights_proxy_mt)
             self.states = proxy_states
 

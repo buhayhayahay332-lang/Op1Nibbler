@@ -57,7 +57,9 @@ return function(_)
         applyLighting(fullbrightSettings)
 
         task.spawn(function()
-            repeat task.wait() until _G.FullBrightEnabled
+            repeat
+                task.wait()
+            until _G.FullBrightEnabled
             local lastState = _G.FullBrightEnabled
             while task.wait() do
                 if _G.FullBrightEnabled ~= lastState then
