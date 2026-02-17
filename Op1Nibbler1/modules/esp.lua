@@ -5,7 +5,7 @@ return function(_)
 
     local camera = workspace.CurrentCamera
 
-    local ESP_ENABLED = true
+    local ESP_ENABLED = false
     local TEAM_CHECK = true
 
     local PLAYER_BOX_ENABLED = true

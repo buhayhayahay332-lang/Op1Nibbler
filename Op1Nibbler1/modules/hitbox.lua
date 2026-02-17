@@ -27,7 +27,7 @@ return function(_)
     local HITBOX_COLOR = Color3_fromRGB(255, 0, 0)
     local TOGGLE_KEY = Enum.KeyCode.H
 
-    local ENABLED = true
+    local ENABLED = false
     local globalConnections = {}
     local modifiedHeads = {}
     local originalData = {}

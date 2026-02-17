@@ -169,7 +169,7 @@ return function(ctx)
     }
 
     M = {
-        enabled = true,
+        enabled = false,
         recoilReduction = CONFIG.recoil_reduction,
         horizontalRecoil = CONFIG.horizontal_recoil,
         noSpread = CONFIG.no_spread,
@@ -306,7 +306,7 @@ return function(ctx)
         end
 
         hookFunctions()
-        if CONFIG.force_auto then
+        if self.enabled and CONFIG.force_auto then
             GunModule.automatic = true
         end
         self._initialized = true
@@ -314,6 +314,9 @@ return function(ctx)
 
     function M:SetEnabled(value)
         self.enabled = value and true or false
+        if self.enabled and CONFIG.force_auto then
+            GunModule.automatic = true
+        end
     end
 
     function M:SetRecoilReduction(value)
@@ -350,7 +353,7 @@ return function(ctx)
     function M:SetForceAuto(value)
         CONFIG.force_auto = value and true or false
         self.forceAuto = CONFIG.force_auto
-        if CONFIG.force_auto then
+        if self.enabled and CONFIG.force_auto then
             GunModule.automatic = true
         end
     end

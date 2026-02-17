@@ -11,7 +11,7 @@ return function(ctx)
     local original_get_shoot_look = clonefunction(GunModule.get_shoot_look)
 
     local CONFIG = {
-        enabled = true,
+        enabled = false,
         fov_radius = 60,
         target_players = true,
         target_gadgets = true,
