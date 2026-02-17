@@ -19,7 +19,7 @@ return function(ctx, Modules)
     end)
 
     local Window = Library:CreateWindow({
-        Title = "Op1NIGATRON",
+        Title = "LUSTIN ANTI-CHEAT IS CUTE OP1",
         Center = true,
         AutoShow = true
     })
@@ -111,6 +111,25 @@ return function(ctx, Modules)
 
     local WR = Tabs.World:AddLeftGroupbox("World")
     WR:AddToggle("fb_en", { Text = "Fullbright", Default = Modules.Fullbright.enabled }):OnChanged(function(v) Modules.Fullbright:SetEnabled(v) end)
+    WR:AddSlider("fb_brightness", { Text = "Brightness", Default = Modules.Fullbright.brightness, Min = 0, Max = 10, Rounding = 2 }):OnChanged(function(v)
+        Modules.Fullbright:SetBrightness(v)
+    end)
+    WR:AddSlider("fb_clock", { Text = "Clock Time", Default = Modules.Fullbright.clockTime, Min = 0, Max = 24, Rounding = 2 }):OnChanged(function(v)
+        Modules.Fullbright:SetClockTime(v)
+    end)
+    WR:AddSlider("fb_fog", { Text = "Fog End", Default = Modules.Fullbright.fogEnd, Min = 100, Max = 1000000, Rounding = 0 }):OnChanged(function(v)
+        Modules.Fullbright:SetFogEnd(v)
+    end)
+    WR:AddToggle("fb_shadows", { Text = "Global Shadows", Default = Modules.Fullbright.globalShadows }):OnChanged(function(v)
+        Modules.Fullbright:SetGlobalShadows(v)
+    end)
+    WR:AddLabel("Ambient Color"):AddColorPicker("fb_ambient", {
+        Default = Modules.Fullbright.ambient,
+        Title = "Ambient Color",
+        Callback = function(v)
+            Modules.Fullbright:SetAmbient(v)
+        end
+    })
 
     local UIG = Tabs.UI:AddLeftGroupbox("Menu")
     UIG:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", { Default = "RightControl", NoUI = true, Text = "Menu Keybind" })
@@ -130,4 +149,3 @@ return function(ctx, Modules)
 
     Library.ToggleKeybind = Options.MenuKeybind
 end
-

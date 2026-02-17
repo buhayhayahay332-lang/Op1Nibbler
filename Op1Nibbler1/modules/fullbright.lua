@@ -1,6 +1,11 @@
 return function(_)
     local M = {
-        enabled = false
+        enabled = false,
+        brightness = 1,
+        clockTime = 12,
+        fogEnd = 786543,
+        globalShadows = false,
+        ambient = Color3.fromRGB(178, 178, 178)
     }
 
     local lighting = game:GetService("Lighting")
@@ -32,9 +37,10 @@ return function(_)
             Ambient = lighting.Ambient
         }
 
-        local function setupPropertyMonitor(property, fullbrightValue)
+        local function setupPropertyMonitor(property)
             lighting:GetPropertyChangedSignal(property):Connect(function()
                 local current = lighting[property]
+                local fullbrightValue = fullbrightSettings[property]
                 if current ~= fullbrightValue and current ~= _G.NormalLightingSettings[property] then
                     _G.NormalLightingSettings[property] = current
                     if _G.FullBrightEnabled then
@@ -44,8 +50,8 @@ return function(_)
             end)
         end
 
-        for property, value in pairs(fullbrightSettings) do
-            setupPropertyMonitor(property, value)
+        for property in pairs(fullbrightSettings) do
+            setupPropertyMonitor(property)
         end
 
         applyLighting(fullbrightSettings)
@@ -69,6 +75,46 @@ return function(_)
         _G.FullBrightEnabled = state and true or false
         M.enabled = _G.FullBrightEnabled
         applyLighting(_G.FullBrightEnabled and fullbrightSettings or _G.NormalLightingSettings)
+    end
+
+    function M:SetBrightness(value)
+        fullbrightSettings.Brightness = value
+        self.brightness = value
+        if self.enabled then
+            lighting.Brightness = value
+        end
+    end
+
+    function M:SetClockTime(value)
+        fullbrightSettings.ClockTime = value
+        self.clockTime = value
+        if self.enabled then
+            lighting.ClockTime = value
+        end
+    end
+
+    function M:SetFogEnd(value)
+        fullbrightSettings.FogEnd = value
+        self.fogEnd = value
+        if self.enabled then
+            lighting.FogEnd = value
+        end
+    end
+
+    function M:SetGlobalShadows(value)
+        fullbrightSettings.GlobalShadows = value and true or false
+        self.globalShadows = fullbrightSettings.GlobalShadows
+        if self.enabled then
+            lighting.GlobalShadows = self.globalShadows
+        end
+    end
+
+    function M:SetAmbient(value)
+        fullbrightSettings.Ambient = value
+        self.ambient = value
+        if self.enabled then
+            lighting.Ambient = value
+        end
     end
 
     function M:Toggle()
