@@ -19,7 +19,7 @@ return function(ctx, Modules)
     end)
 
     local Window = Library:CreateWindow({
-        Title = "LUSTIN ANTI-CHEAT IS CUTE OP1",
+        Title = "YE THE GLAZER",
         Center = true,
         AutoShow = true
     })
