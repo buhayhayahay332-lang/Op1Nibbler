@@ -3,11 +3,13 @@ if getgenv().__OP1NIBBLER_UI__ then
 end
 getgenv().__OP1NIBBLER_UI__ = true
 
-local cloneref = cloneref or function(v) return v end
+local cloneref = cloneref or function(v)
+    return v
+end
 
 local function import(path)
-    local baseUrl = getgenv().OP1NIBBLER_BASE_URL
-        or "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/Op1Nibbler1/"
+    local baseUrl = getgenv().OP1NIBBLER_BASE_URL or
+                        "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/Op1Nibbler1/"
 
     if game.HttpGet and baseUrl and #baseUrl > 0 then
         local url = baseUrl .. path
