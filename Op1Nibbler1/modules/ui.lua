@@ -56,13 +56,6 @@ return function(ctx, Modules)
     HB:AddToggle("hb_team", { Text = "Team Check", Default = Modules.Hitbox.teamCheck }):OnChanged(function(v) Modules.Hitbox.teamCheck = v end)
     HB:AddSlider("hb_size", { Text = "Size", Default = Modules.Hitbox.size, Min = 2, Max = 12, Rounding = 1 }):OnChanged(function(v) Modules.Hitbox:SetSize(v) end)
     HB:AddSlider("hb_t", { Text = "Transparency", Default = Modules.Hitbox.transparency, Min = 0, Max = 1, Rounding = 2 }):OnChanged(function(v) Modules.Hitbox:SetTransparency(v) end)
-    HB:AddLabel("Hitbox Color"):AddColorPicker("hb_color", {
-        Default = Modules.Hitbox.color,
-        Title = "Hitbox Color",
-        Callback = function(v)
-            Modules.Hitbox:SetColor(v)
-        end
-    })
 
     local ESP = Tabs.Visuals:AddLeftGroupbox("ESP")
     ESP:AddToggle("esp_en", { Text = "Enable ESP", Default = Modules.ESP.enabled }):OnChanged(function(v) Modules.ESP:SetEnabled(v) end)
