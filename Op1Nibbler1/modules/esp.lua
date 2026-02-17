@@ -145,10 +145,36 @@ return function(_)
 
         return teamCache[model] == true
     end
+    local exunysSourceCache = nil
 
+    local function getPatchedExunysSource()
+        if exunysSourceCache then
+            return exunysSourceCache
+        end
+
+        local ok, source = pcall(function()
+            return game:HttpGet(EXUNYS_URL)
+        end)
+        if not ok or type(source) ~= "string" then
+            return nil
+        end
+
+        source = source:gsub(
+            'local Connect, Disconnect = __index%(%s*game%s*,%s*"DescendantAdded"%s*%)%.Connect',
+            'local Connect = __index(game, "DescendantAdded").Connect\nlocal Disconnect = function(Connection)\n\tif Connection and Connection.Disconnect then\n\t\treturn Connection:Disconnect()\n\tend\nend'
+        )
+
+        exunysSourceCache = source
+        return exunysSourceCache
+    end
     local function createExunysInstance(color, thickness, transparency)
+        local source = getPatchedExunysSource()
+        if not source then
+            return nil
+        end
+
         local ok, env = pcall(function()
-            return loadstring(game:HttpGet(EXUNYS_URL))()
+            return loadstring(source)()
         end)
         if not ok or type(env) ~= "table" then
             return nil
@@ -638,3 +664,4 @@ return function(_)
 
     return M
 end
+
