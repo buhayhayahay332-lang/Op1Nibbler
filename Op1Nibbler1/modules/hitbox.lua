@@ -1,143 +1,294 @@
-return function(ctx)
-    local Workspace = ctx.Services.Workspace
+return function(_)
+    local USE_PROPERTY_SPOOFING = true
+
+    -- services
+    local cloneref = cloneref or function(obj) return obj end
+    local clonefunction = clonefunction or function(fn) return fn end
+    local Workspace = cloneref(game:GetService("Workspace"))
+    local Players = cloneref(game:GetService("Players"))
+    local UserInputService = cloneref(game:GetService("UserInputService"))
+    local task_delay = clonefunction(task.delay)
+    local table_insert = clonefunction(table.insert)
+    local tick = clonefunction(tick)
+    local pairs = clonefunction(pairs)
+    local ipairs = clonefunction(ipairs)
+    local print = clonefunction(print)
+    local Vector3_new = clonefunction(Vector3.new)
+    local Color3_fromRGB = clonefunction(Color3.fromRGB)
+    local Instance_new = clonefunction(Instance.new)
+    local newcclosure = newcclosure or function(f) return f end
+
+    -- viewmodels folder
+    local ViewmodelsFolder = Workspace:WaitForChild("Viewmodels")
+
+    -- settings
+    local HITBOX_SIZE = 5
+    local HITBOX_TRANSPARENCY = 0.9
+    local HITBOX_COLOR = Color3_fromRGB(255, 0, 0)
+    local TOGGLE_KEY = Enum.KeyCode.H
+
+    local ENABLED = true
+    local globalConnections = {}
+    local modifiedHeads = {}
+    local originalData = {}
+    local viewmodelConnections = {}
 
     local M = {
-        enabled = false,
-        size = 5,
-        transparency = 0.9,
-        color = Color3.fromRGB(255, 0, 0),
-        teamCheck = true,
-        vmFolder = nil,
-        vmConns = {},
-        original = {},
-        modified = {}
+        enabled = ENABLED,
+        size = HITBOX_SIZE,
+        transparency = HITBOX_TRANSPARENCY,
+        color = HITBOX_COLOR,
+        teamCheck = true
     }
 
-    local function isEnemy(viewmodel)
-        if not M.teamCheck then
-            return true
-        end
+    -- hooks
+    local hookfunction = hookfunction or function(f, r) return f end
 
-        for _, child in ipairs(Workspace:GetChildren()) do
-            if child:IsA("Highlight") and child.Adornee == viewmodel then
-                return false
+    local old_GetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
+        if originalData[self] and (property == "Size" or property == "Transparency" or property == "Color") then
+            return Instance_new("BindableEvent").Event
+        end
+        return old_GetPropertyChangedSignal(self, property)
+    end))
+
+    if USE_PROPERTY_SPOOFING then
+        local hookmetamethod = hookmetamethod or function() end
+        local getrawmetatable = getrawmetatable or function() return {} end
+        local setreadonly = setreadonly or function() end
+
+        local mt = getrawmetatable(game)
+        local old_index = mt.__index
+        setreadonly(mt, false)
+
+        mt.__index = newcclosure(function(self, key)
+            if originalData[self] then
+                if key == "Size" then
+                    return originalData[self].Size
+                elseif key == "Transparency" then
+                    return originalData[self].Transparency
+                elseif key == "Color" then
+                    return originalData[self].Color
+                end
             end
-        end
+            return old_index(self, key)
+        end)
 
-        return true
+        setreadonly(mt, true)
+        print("Property spoofing: ENABLED")
+    else
+        print("Property spoofing: DISABLED")
     end
 
-    function M:Apply(head)
-        if not head or head.Name ~= "head" or not head:IsA("BasePart") then
-            return
-        end
+    -- team filtering
+    local teamCache = {}
+    local lastCacheUpdate = 0
 
-        if not self.original[head] then
-            self.original[head] = {
+    local updateTeamCache = newcclosure(function()
+        teamCache = {}
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj:IsA("Highlight") and obj.Adornee then
+                teamCache[obj.Adornee] = true
+            end
+        end
+    end)
+
+    local isTeammate = newcclosure(function(vm)
+        if not M.teamCheck then
+            return false
+        end
+        if tick() - lastCacheUpdate > 0.5 then
+            updateTeamCache()
+            lastCacheUpdate = tick()
+        end
+        return teamCache[vm] == true
+    end)
+
+    -- hitboxes
+    local shouldModify = newcclosure(function(vm)
+        if vm.Name == "LocalViewmodel" then return false end
+        local torso = vm:FindFirstChild("torso")
+        if not torso or torso.Transparency == 1 then return false end
+        return not isTeammate(vm)
+    end)
+
+    local applyHitbox = newcclosure(function(head)
+        if not ENABLED or not head or head.Name ~= "head" then return end
+
+        if not originalData[head] then
+            originalData[head] = {
                 Size = head.Size,
                 Transparency = head.Transparency,
                 Color = head.Color
             }
         end
 
-        head.Size = Vector3.new(self.size, self.size, self.size)
-        head.Transparency = self.transparency
-        head.Color = self.color
-        self.modified[head] = true
-    end
+        head.Size = Vector3_new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
+        head.Transparency = HITBOX_TRANSPARENCY
+        head.Color = HITBOX_COLOR
+        head.CanCollide = false
+        head.Massless = true
 
-    function M:Reset(head)
-        local original = self.original[head]
-        if not original or not head then
-            return
+        modifiedHeads[head] = true
+    end)
+
+    local resetHead = newcclosure(function(head)
+        if head and originalData[head] then
+            head.Size = originalData[head].Size
+            head.Transparency = originalData[head].Transparency
+            head.Color = originalData[head].Color
+
+            originalData[head] = nil
+            modifiedHeads[head] = nil
+        end
+    end)
+
+    -- cleanups
+    local cleanupViewmodel = newcclosure(function(vm)
+        if viewmodelConnections[vm] then
+            for _, conn in ipairs(viewmodelConnections[vm]) do
+                pcall(function() conn:Disconnect() end)
+            end
+            viewmodelConnections[vm] = nil
         end
 
-        head.Size = original.Size
-        head.Transparency = original.Transparency
-        head.Color = original.Color
-        self.original[head], self.modified[head] = nil, nil
-    end
-
-    function M:ProcessVm(vm)
-        if not self.enabled or vm.Name == "LocalViewmodel" or not isEnemy(vm) then
-            return
+        for head in pairs(modifiedHeads) do
+            if head:IsDescendantOf(vm) or head.Parent == nil then
+                resetHead(head)
+            end
         end
+    end)
 
-        local torso = vm:FindFirstChild("torso")
-        if not torso or torso.Transparency == 1 then
-            return
-        end
+    -- init
+    local processViewmodel = newcclosure(function(vm)
+        if not shouldModify(vm) then return end
 
-        local head = vm:FindFirstChild("head")
-        if head then
-            self:Apply(head)
-        end
+        viewmodelConnections[vm] = {}
 
-        self.vmConns[vm] = self.vmConns[vm] or {}
-
-        table.insert(self.vmConns[vm], vm.ChildAdded:Connect(function(child)
-            if child.Name == "head" and self.enabled then
-                self:Apply(child)
+        task_delay(0.1, newcclosure(function()
+            if shouldModify(vm) then
+                local head = vm:FindFirstChild("head")
+                if head then applyHitbox(head) end
             end
         end))
 
-        table.insert(self.vmConns[vm], vm.AncestryChanged:Connect(function(_, parent)
-            if not parent and self.vmConns[vm] then
-                for _, conn in ipairs(self.vmConns[vm]) do
-                    pcall(function() conn:Disconnect() end)
-                end
-                self.vmConns[vm] = nil
+        local childAddedConn = vm.ChildAdded:Connect(newcclosure(function(child)
+            if child.Name == "head" then
+                task_delay(0.05, newcclosure(function()
+                    if shouldModify(vm) then
+                        applyHitbox(child)
+                    end
+                end))
             end
         end))
-    end
+        table_insert(viewmodelConnections[vm], childAddedConn)
 
-    function M:SetEnabled(state)
-        self.enabled = state and true or false
-
-        if self.enabled then
-            self.vmFolder = self.vmFolder
-                or Workspace:FindFirstChild("Viewmodels")
-                or Workspace:WaitForChild("Viewmodels", 10)
-
-            if not self.vmFolder then
-                return
+        local ancestryConn = vm.AncestryChanged:Connect(newcclosure(function(_, parent)
+            if not parent then
+                cleanupViewmodel(vm)
             end
+        end))
+        table_insert(viewmodelConnections[vm], ancestryConn)
+    end)
 
-            for _, vm in ipairs(self.vmFolder:GetChildren()) do
-                if vm:IsA("Model") then
-                    self:ProcessVm(vm)
-                end
+    -- toggles
+    local toggle = newcclosure(function()
+        ENABLED = not ENABLED
+        M.enabled = ENABLED
+        print(ENABLED and "Hitbox Expander: ENABLED" or "Hitbox Expander: DISABLED")
+
+        if ENABLED then
+            updateTeamCache()
+            for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+                if vm:IsA("Model") then processViewmodel(vm) end
             end
         else
-            for head in pairs(self.modified) do
-                self:Reset(head)
+            for vm in pairs(viewmodelConnections) do
+                cleanupViewmodel(vm)
             end
+        end
+    end)
+
+    -- players hitbox init
+    updateTeamCache()
+
+    table_insert(globalConnections, ViewmodelsFolder.ChildAdded:Connect(newcclosure(function(vm)
+        if vm:IsA("Model") then
+            processViewmodel(vm)
+        end
+    end)))
+
+    table_insert(globalConnections, ViewmodelsFolder.ChildRemoved:Connect(newcclosure(function(vm)
+        if vm:IsA("Model") then
+            cleanupViewmodel(vm)
+        end
+    end)))
+
+    for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+        if vm:IsA("Model") then processViewmodel(vm) end
+    end
+
+    table_insert(globalConnections, Workspace.CurrentCamera.ChildAdded:Connect(newcclosure(function(part)
+        if part:IsA("BasePart") and part.Name == "head" then
+            resetHead(part)
+        end
+    end)))
+
+    local localViewmodel = ViewmodelsFolder:FindFirstChild("LocalViewmodel")
+    if localViewmodel then
+        local conn = localViewmodel.ChildAdded:Connect(newcclosure(function(child)
+            if child.Name == "head" then
+                resetHead(child)
+            end
+        end))
+        table_insert(globalConnections, conn)
+    end
+
+    -- Toggle keybind
+    table_insert(globalConnections, UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
+        if not processed and input.KeyCode == TOGGLE_KEY then
+            toggle()
+        end
+    end)))
+
+    function M:SetEnabled(state)
+        state = state and true or false
+        if state ~= ENABLED then
+            toggle()
         end
     end
 
     function M:SetSize(value)
-        self.size = value
-        for head in pairs(self.modified) do
-            if head.Parent then
-                head.Size = Vector3.new(value, value, value)
+        HITBOX_SIZE = value
+        M.size = value
+        if ENABLED then
+            for head in pairs(modifiedHeads) do
+                if head and head.Parent then
+                    head.Size = Vector3_new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE)
+                end
             end
         end
     end
 
     function M:SetTransparency(value)
-        self.transparency = value
-        for head in pairs(self.modified) do
-            if head.Parent then
-                head.Transparency = value
+        HITBOX_TRANSPARENCY = value
+        M.transparency = value
+        if ENABLED then
+            for head in pairs(modifiedHeads) do
+                if head and head.Parent then
+                    head.Transparency = HITBOX_TRANSPARENCY
+                end
             end
         end
     end
 
     function M:SetColor(value)
-        self.color = value
-        for head in pairs(self.modified) do
-            if head.Parent then
-                head.Color = value
+        HITBOX_COLOR = value
+        M.color = value
+        if ENABLED then
+            for head in pairs(modifiedHeads) do
+                if head and head.Parent then
+                    head.Color = HITBOX_COLOR
+                end
             end
         end
     end
