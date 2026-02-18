@@ -145,6 +145,7 @@ return function(_)
 
         return teamCache[model] == true
     end
+
     local exunysSourceCache = nil
 
     local function getPatchedExunysSource()
@@ -177,6 +178,7 @@ return function(_)
         exunysSourceCache = source
         return exunysSourceCache
     end
+
     local function createExunysInstance(color, thickness, transparency)
         local source = getPatchedExunysSource()
         if not source then
@@ -284,69 +286,73 @@ return function(_)
             Chams = false
         }
     end
-    local function refreshWrappedHandle(entry)
-        if not entry or not entry.wrapped or entry.wrappedHash or not entry.wrappedPart then
+
+    local function clearInstance(instance)
+        if not instance or type(instance.UtilityAssets) ~= "table" then
             return
         end
 
-        local instance = entry.instance
-        if not instance or type(instance.GetEntry) ~= "function" then
+        local wrapped = instance.UtilityAssets.WrappedObjects
+        if type(wrapped) ~= "table" then
             return
         end
 
-        local ok, wrappedEntry = pcall(function()
-            return instance.GetEntry(entry.wrappedPart)
-        end)
-
-        if ok and type(wrappedEntry) == "table" and wrappedEntry.Hash then
-            entry.wrappedHash = wrappedEntry.Hash
-        end
-    end
-
-    local function wrapEntry(entry)
-        if not entry or entry.wrapped or not entry.part or not entry.part.Parent then
-            return
+        local hashes = {}
+        for _, wrappedEntry in pairs(wrapped) do
+            if type(wrappedEntry) == "table" and wrappedEntry.Hash then
+                hashes[#hashes + 1] = wrappedEntry.Hash
+            end
         end
 
-        local instance = entry.instance
-        if not instance then
-            return
-        end
-
-        local ok = pcall(function()
-            instance.WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
-        end)
-
-        if ok then
-            entry.wrapped = true
-            entry.wrappedHash = nil
-            entry.wrappedPart = entry.part
-            refreshWrappedHandle(entry)
-        else
-            entry.wrapped = false
-            entry.wrappedHash = nil
-            entry.wrappedPart = nil
-        end
-    end
-
-    local function unwrapEntry(entry)
-        if not entry or not entry.wrapped then
-            return
-        end
-
-        refreshWrappedHandle(entry)
-
-        local instance = entry.instance
-        local target = entry.wrappedHash or entry.wrappedPart or entry.part
-        if instance and target then
+        for _, hash in ipairs(hashes) do
             pcall(function()
-                instance.UnwrapObject(target)
+                instance.UnwrapObject(hash)
             end)
         end
+    end
 
-        entry.wrapped = false
-        entry.wrappedHash = nil
-        entry.wrappedPart = nil
+    local function syncInstance(instance, desired)
+        if not instance or type(desired) ~= "table" then
+            return
+        end
+
+        local wrapped = instance.UtilityAssets and instance.UtilityAssets.WrappedObjects
+        if type(wrapped) == "table" then
+            local staleHashes = {}
+            for _, wrappedEntry in pairs(wrapped) do
+                if type(wrappedEntry) == "table" and wrappedEntry.Object then
+                    local wrappedObj = wrappedEntry.Object
+                    local keep = desired[wrappedObj] ~= nil and wrappedObj.Parent ~= nil
+                    if not keep and wrappedEntry.Hash then
+                        staleHashes[#staleHashes + 1] = wrappedEntry.Hash
+                    end
+                end
+            end
+
+            for _, hash in ipairs(staleHashes) do
+                pcall(function()
+                    instance.UnwrapObject(hash)
+                end)
+            end
+        end
+
+        for part, pseudoName in pairs(desired) do
+            if part and part.Parent then
+                local exists = false
+                if type(instance.GetEntry) == "function" then
+                    local ok, wrappedEntry = pcall(function()
+                        return instance.GetEntry(part)
+                    end)
+                    exists = ok and wrappedEntry ~= nil
+                end
+
+                if not exists then
+                    pcall(function()
+                        instance.WrapObject(part, pseudoName, allowedBoxOnly(), math.huge)
+                    end)
+                end
+            end
+        end
     end
 
     local function cleanupPlayer(model)
@@ -354,8 +360,6 @@ return function(_)
         if not entry then
             return
         end
-
-        unwrapEntry(entry)
 
         if entry.headConn then
             entry.headConn:Disconnect()
@@ -368,12 +372,6 @@ return function(_)
     end
 
     local function cleanupObject(model)
-        local entry = objectEntries[model]
-        if not entry then
-            return
-        end
-
-        unwrapEntry(entry)
         objectEntries[model] = nil
     end
 
@@ -390,12 +388,8 @@ return function(_)
         end
 
         local entry = {
-            instance = Exunys.player,
             part = part,
             name = model.Name,
-            wrapped = false,
-            wrappedHash = nil,
-            wrappedPart = nil,
             head = head,
             torso = torso,
             isVisible = torso.Transparency <= 0.95
@@ -423,8 +417,7 @@ return function(_)
             return
         end
 
-        local instance = getObjectInstance(model.Name)
-        if not instance then
+        if not getObjectInstance(model.Name) then
             return
         end
 
@@ -434,12 +427,8 @@ return function(_)
         end
 
         objectEntries[model] = {
-            instance = instance,
             part = part,
-            name = model.Name,
-            wrapped = false,
-            wrappedHash = nil,
-            wrappedPart = nil
+            name = model.Name
         }
     end
 
@@ -507,11 +496,7 @@ return function(_)
         if not currentPart or not currentPart.Parent then
             return false
         end
-
-        if currentPart ~= entry.part then
-            unwrapEntry(entry)
-            entry.part = currentPart
-        end
+        entry.part = currentPart
 
         if not entry.head or not entry.head.Parent then
             entry.head = model:FindFirstChild("head")
@@ -540,73 +525,62 @@ return function(_)
             return false
         end
 
-        local refPart = model:IsA("Model") and resolveModelPart(model) or entry.part
-        if not refPart or not refPart.Parent then
+        local currentPart = resolveModelPart(model)
+        if not currentPart or not currentPart.Parent then
             return false
         end
 
-        if refPart ~= entry.part then
-            unwrapEntry(entry)
-            entry.part = refPart
-        end
+        entry.part = currentPart
 
         return isInFrustum(entry.part.Position) and isOnScreen(entry.part.Position)
     end
 
     local function renderStep()
-        if not ESP_ENABLED then
-            for _, entry in pairs(playerEntries) do
-                unwrapEntry(entry)
+        local desiredPlayer = {}
+        local desiredDrone = {}
+        local desiredClaymore = {}
+        local desiredProximity = {}
+        local desiredSticky = {}
+
+        if ESP_ENABLED then
+            if tick() - lastCache > CACHE_INTERVAL then
+                updateTeamCache()
             end
-            for _, entry in pairs(objectEntries) do
-                unwrapEntry(entry)
-            end
-            return
-        end
 
-        if tick() - lastCache > CACHE_INTERVAL then
-            updateTeamCache()
-        end
-
-        if PLAYER_BOX_ENABLED then
-            for model, entry in pairs(playerEntries) do
-                if entry.wrapped then
-                    refreshWrappedHandle(entry)
-                end
-
-                if not model:IsDescendantOf(Workspace) then
-                    cleanupPlayer(model)
-                elseif shouldShowPlayer(entry, model) then
-                    wrapEntry(entry)
-                else
-                    unwrapEntry(entry)
+            if PLAYER_BOX_ENABLED then
+                for model, entry in pairs(playerEntries) do
+                    if not model:IsDescendantOf(Workspace) then
+                        cleanupPlayer(model)
+                    elseif shouldShowPlayer(entry, model) then
+                        desiredPlayer[entry.part] = entry.name
+                    end
                 end
             end
-        else
-            for _, entry in pairs(playerEntries) do
-                unwrapEntry(entry)
+
+            if OBJECT_BOX_ENABLED then
+                for model, entry in pairs(objectEntries) do
+                    if not model:IsDescendantOf(Workspace) then
+                        cleanupObject(model)
+                    elseif shouldShowObject(entry, model) then
+                        if model.Name == "Drone" then
+                            desiredDrone[entry.part] = entry.name
+                        elseif model.Name == "Claymore" then
+                            desiredClaymore[entry.part] = entry.name
+                        elseif model.Name == "ProximityAlarm" then
+                            desiredProximity[entry.part] = entry.name
+                        elseif model.Name == "StickyCamera" then
+                            desiredSticky[entry.part] = entry.name
+                        end
+                    end
+                end
             end
         end
 
-        if OBJECT_BOX_ENABLED then
-            for model, entry in pairs(objectEntries) do
-                if entry.wrapped then
-                    refreshWrappedHandle(entry)
-                end
-
-                if not model:IsDescendantOf(Workspace) then
-                    cleanupObject(model)
-                elseif shouldShowObject(entry, model) then
-                    wrapEntry(entry)
-                else
-                    unwrapEntry(entry)
-                end
-            end
-        else
-            for _, entry in pairs(objectEntries) do
-                unwrapEntry(entry)
-            end
-        end
+        syncInstance(Exunys.player, desiredPlayer)
+        syncInstance(Exunys.drone, desiredDrone)
+        syncInstance(Exunys.claymore, desiredClaymore)
+        syncInstance(Exunys.proximity, desiredProximity)
+        syncInstance(Exunys.sticky, desiredSticky)
     end
 
     function M:Init()
@@ -654,9 +628,7 @@ return function(_)
         self.playerBoxEnabled = PLAYER_BOX_ENABLED
 
         if not PLAYER_BOX_ENABLED then
-            for _, entry in pairs(playerEntries) do
-                unwrapEntry(entry)
-            end
+            clearInstance(Exunys.player)
         end
     end
 
@@ -665,9 +637,10 @@ return function(_)
         self.objectBoxEnabled = OBJECT_BOX_ENABLED
 
         if not OBJECT_BOX_ENABLED then
-            for _, entry in pairs(objectEntries) do
-                unwrapEntry(entry)
-            end
+            clearInstance(Exunys.drone)
+            clearInstance(Exunys.claymore)
+            clearInstance(Exunys.proximity)
+            clearInstance(Exunys.sticky)
         end
     end
 
@@ -732,6 +705,12 @@ return function(_)
         end
         table.clear(connections)
 
+        clearInstance(Exunys.player)
+        clearInstance(Exunys.drone)
+        clearInstance(Exunys.claymore)
+        clearInstance(Exunys.proximity)
+        clearInstance(Exunys.sticky)
+
         for model in pairs(playerEntries) do
             cleanupPlayer(model)
         end
@@ -744,16 +723,3 @@ return function(_)
 
     return M
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
