@@ -3,6 +3,15 @@ return function(_)
     local Workspace = game:GetService("Workspace")
     local UserInputService = game:GetService("UserInputService")
 
+    local tick = tick
+    local acos = math.acos
+    local rad = math.rad
+    local min = math.min
+    local max = math.max
+    local huge = math.huge
+    local Vector2new = Vector2.new
+    local Vector3new = Vector3.new
+
     local ESP_ENABLED = false
     local TEAM_CHECK = true
 
@@ -28,8 +37,26 @@ return function(_)
     local CONNECTIONS = {}
     local RENDER_CONNECTION = nil
 
+    local OBJECT_WHITELIST = {
+        Drone = true,
+        Claymore = true,
+        ProximityAlarm = true,
+        StickyCamera = true
+    }
+
     local CACHED_CORNERS = {}
     local CACHED_POINTS = {}
+    for i = 1, 8 do
+        CACHED_CORNERS[i] = Vector3new(0, 0, 0)
+    end
+    for i = 1, 4 do
+        CACHED_POINTS[i] = Vector3new(0, 0, 0)
+    end
+
+    local camera = Workspace.CurrentCamera
+    table.insert(CONNECTIONS, Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+        camera = Workspace.CurrentCamera
+    end))
 
     local M = {
         initialized = false,
@@ -46,43 +73,11 @@ return function(_)
         objectThickness = OBJECT_BOX_THICK
     }
 
-    local function getCamera()
-        return Workspace.CurrentCamera
-    end
-
-    local function isOnScreen(worldPos)
-        local camera = getCamera()
-        if not camera then
-            return false
-        end
-        local _, onScreen = camera:WorldToViewportPoint(worldPos)
-        return onScreen
-    end
-
-    local function isInFrustum(worldPos)
-        local camera = getCamera()
-        if not camera then
-            return false
-        end
-
-        local relativePos = worldPos - camera.CFrame.Position
-        local lookDir = camera.CFrame.LookVector
-        if relativePos:Dot(lookDir) <= 0 then
-            return false
-        end
-
-        local mag = relativePos.Magnitude
-        if mag <= 0 then
-            return true
-        end
-
-        local angle = math.acos(math.min(1, relativePos.Unit:Dot(lookDir)))
-        return angle < math.rad(60)
-    end
-
     local function updateTeamCache()
         TEAM_CACHE = {}
-        for _, obj in ipairs(Workspace:GetChildren()) do
+        local children = Workspace:GetChildren()
+        for i = 1, #children do
+            local obj = children[i]
             if obj:IsA("Highlight") and obj.Adornee then
                 TEAM_CACHE[obj.Adornee] = true
             end
@@ -100,60 +95,43 @@ return function(_)
         return TEAM_CACHE[model] == true
     end
 
-    local function createBox(color, thickness, transparency, zindex)
+    local function isInFrustum(worldPos)
+        if not camera then
+            return false
+        end
+
+        local relativePos = worldPos - camera.CFrame.Position
+        local lookDir = camera.CFrame.LookVector
+        if relativePos:Dot(lookDir) <= 0 then
+            return false
+        end
+
+        local mag = relativePos.Magnitude
+        if mag <= 0 then
+            return true
+        end
+
+        local angle = acos(min(1, relativePos.Unit:Dot(lookDir)))
+        return angle < rad(60)
+    end
+
+    local function onScreen(worldPos)
+        if not camera then
+            return false
+        end
+        local _, visible = camera:WorldToViewportPoint(worldPos)
+        return visible
+    end
+
+    local function createBox(color, thickness, transparency, zIndex)
         local box = Drawing.new("Square")
         box.Visible = false
         box.Filled = false
         box.Color = color
         box.Thickness = thickness
         box.Transparency = transparency
-        box.ZIndex = zindex
+        box.ZIndex = zIndex
         return box
-    end
-
-    local function resolveObjectPart(model)
-        if not model then
-            return nil
-        end
-
-        if model:IsA("BasePart") then
-            return model
-        end
-
-        if model:IsA("Model") then
-            if model.PrimaryPart then
-                return model.PrimaryPart
-            end
-            return model:FindFirstChildWhichIsA("BasePart", true)
-        end
-
-        return nil
-    end
-
-    local function resolvePlayerParts(model)
-        if not model or not model:IsA("Model") then
-            return nil, nil
-        end
-
-        local head = model:FindFirstChild("head")
-        local torso = model:FindFirstChild("torso")
-
-        if not head then
-            head = model:FindFirstChild("Head")
-        end
-        if not torso then
-            torso = model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or model:FindFirstChild("HumanoidRootPart")
-        end
-
-        if not head or not torso then
-            return nil, nil
-        end
-
-        if not head:IsA("BasePart") or not torso:IsA("BasePart") then
-            return nil, nil
-        end
-
-        return head, torso
     end
 
     local function getObjectColorByName(name)
@@ -169,91 +147,99 @@ return function(_)
         return nil
     end
 
-    local function getObjectBox2D(model)
-        local camera = getCamera()
-        if not camera then
-            return false
+    local function resolvePlayerParts(model)
+        local head = model:FindFirstChild("head") or model:FindFirstChild("Head")
+        local torso = model:FindFirstChild("torso") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or
+            model:FindFirstChild("HumanoidRootPart")
+
+        if not head or not torso then
+            return nil, nil
+        end
+        if not head:IsA("BasePart") or not torso:IsA("BasePart") then
+            return nil, nil
         end
 
-        local cf, size = model:GetBoundingBox()
-        if not isInFrustum(cf.Position) or not isOnScreen(cf.Position) then
-            return false
-        end
-
-        local hx, hy, hz = size.X * 0.5, size.Y * 0.5, size.Z * 0.5
-        CACHED_CORNERS[1] = cf * Vector3.new(-hx, -hy, -hz)
-        CACHED_CORNERS[2] = cf * Vector3.new(-hx, -hy, hz)
-        CACHED_CORNERS[3] = cf * Vector3.new(-hx, hy, -hz)
-        CACHED_CORNERS[4] = cf * Vector3.new(-hx, hy, hz)
-        CACHED_CORNERS[5] = cf * Vector3.new(hx, -hy, -hz)
-        CACHED_CORNERS[6] = cf * Vector3.new(hx, -hy, hz)
-        CACHED_CORNERS[7] = cf * Vector3.new(hx, hy, -hz)
-        CACHED_CORNERS[8] = cf * Vector3.new(hx, hy, hz)
-
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        local visible = false
-
-        for i = 1, 8 do
-            local screenPos, onScreen = camera:WorldToViewportPoint(CACHED_CORNERS[i])
-            if onScreen then
-                visible = true
-                local x, y = screenPos.X, screenPos.Y
-                if x < minX then minX = x end
-                if y < minY then minY = y end
-                if x > maxX then maxX = x end
-                if y > maxY then maxY = y end
-            end
-        end
-
-        if not visible then
-            return false
-        end
-
-        return true, minX, minY, maxX - minX, maxY - minY
+        return head, torso
     end
 
     local function getPlayerBox2D(head, torso)
-        local camera = getCamera()
-        if not camera then
+        if not head or not torso then
             return false
         end
-
         local torsoPos = torso.Position
-        if not isInFrustum(torsoPos) or not isOnScreen(torsoPos) then
+        if not isInFrustum(torsoPos) or not onScreen(torsoPos) then
             return false
         end
 
         local hsx, hsy = head.Size.X * 0.5, head.Size.Y * 0.5
         local tsx, tsy = torso.Size.X * 0.5, torso.Size.Y * 0.5
 
-        CACHED_POINTS[1] = head.Position + Vector3.new(-hsx, hsy, 0)
-        CACHED_POINTS[2] = head.Position + Vector3.new(hsx, hsy, 0)
-        CACHED_POINTS[3] = torso.Position + Vector3.new(-tsx, -tsy, 0)
-        CACHED_POINTS[4] = torso.Position + Vector3.new(tsx, -tsy, 0)
+        CACHED_POINTS[1] = head.Position + Vector3new(-hsx, hsy, 0)
+        CACHED_POINTS[2] = head.Position + Vector3new(hsx, hsy, 0)
+        CACHED_POINTS[3] = torso.Position + Vector3new(-tsx, -tsy, 0)
+        CACHED_POINTS[4] = torso.Position + Vector3new(tsx, -tsy, 0)
 
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        local visible = false
+        local minX, minY = huge, huge
+        local maxX, maxY = -huge, -huge
+        local anyVisible = false
 
         for i = 1, 4 do
-            local screenPos, onScreen = camera:WorldToViewportPoint(CACHED_POINTS[i])
-            if onScreen then
-                visible = true
+            local screenPos, visible = camera:WorldToViewportPoint(CACHED_POINTS[i])
+            if visible then
+                anyVisible = true
                 local x, y = screenPos.X, screenPos.Y
-                if x < minX then minX = x end
-                if y < minY then minY = y end
-                if x > maxX then maxX = x end
-                if y > maxY then maxY = y end
+                minX = min(minX, x)
+                minY = min(minY, y)
+                maxX = max(maxX, x)
+                maxY = max(maxY, y)
             end
         end
 
-        if not visible then
+        if not anyVisible then
             return false
         end
 
         local padding = 3
         return true, minX - padding, minY - padding, (maxX - minX) + padding * 2, (maxY - minY) + padding * 2
+    end
+
+    local function getObjectBox2D(model)
+        local cf, size = model:GetBoundingBox()
+        if not isInFrustum(cf.Position) or not onScreen(cf.Position) then
+            return false
+        end
+
+        local hx, hy, hz = size.X * 0.5, size.Y * 0.5, size.Z * 0.5
+        CACHED_CORNERS[1] = cf * Vector3new(-hx, -hy, -hz)
+        CACHED_CORNERS[2] = cf * Vector3new(-hx, -hy, hz)
+        CACHED_CORNERS[3] = cf * Vector3new(-hx, hy, -hz)
+        CACHED_CORNERS[4] = cf * Vector3new(-hx, hy, hz)
+        CACHED_CORNERS[5] = cf * Vector3new(hx, -hy, -hz)
+        CACHED_CORNERS[6] = cf * Vector3new(hx, -hy, hz)
+        CACHED_CORNERS[7] = cf * Vector3new(hx, hy, -hz)
+        CACHED_CORNERS[8] = cf * Vector3new(hx, hy, hz)
+
+        local minX, minY = huge, huge
+        local maxX, maxY = -huge, -huge
+        local anyVisible = false
+
+        for i = 1, 8 do
+            local screenPos, visible = camera:WorldToViewportPoint(CACHED_CORNERS[i])
+            if visible then
+                anyVisible = true
+                local x, y = screenPos.X, screenPos.Y
+                minX = min(minX, x)
+                minY = min(minY, y)
+                maxX = max(maxX, x)
+                maxY = max(maxY, y)
+            end
+        end
+
+        if not anyVisible then
+            return false
+        end
+
+        return true, minX, minY, maxX - minX, maxY - minY
     end
 
     local function cleanupPlayerEntry(model)
@@ -327,28 +313,18 @@ return function(_)
             return
         end
 
-        local color = getObjectColorByName(model.Name)
-        if not color then
+        if not OBJECT_WHITELIST[model.Name] then
             return
         end
 
-        local part = resolveObjectPart(model)
-        if not part then
-            return
-        end
-
-        local entry = {
-            part = part,
-            box = createBox(color, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP, 3)
+        OBJECT_ENTRIES[model] = {
+            box = createBox(getObjectColorByName(model.Name), OBJECT_BOX_THICK, OBJECT_BOX_TRANSP, 3),
+            ancestryConn = model.AncestryChanged:Connect(function(_, parent)
+                if not parent then
+                    cleanupObjectEntry(model)
+                end
+            end)
         }
-
-        entry.ancestryConn = model.AncestryChanged:Connect(function(_, parent)
-            if not parent then
-                cleanupObjectEntry(model)
-            end
-        end)
-
-        OBJECT_ENTRIES[model] = entry
     end
 
     local function applyStyles()
@@ -361,27 +337,27 @@ return function(_)
 
         for model, entry in pairs(OBJECT_ENTRIES) do
             local box = entry.box
+            box.Color = getObjectColorByName(model.Name)
             box.Thickness = OBJECT_BOX_THICK
             box.Transparency = OBJECT_BOX_TRANSP
-
-            local c = getObjectColorByName(model.Name)
-            if c then
-                box.Color = c
-            end
         end
     end
 
     local function scanInitial()
         local vmFolder = Workspace:FindFirstChild("Viewmodels")
         if vmFolder then
-            for _, model in ipairs(vmFolder:GetChildren()) do
+            local vmChildren = vmFolder:GetChildren()
+            for i = 1, #vmChildren do
+                local model = vmChildren[i]
                 if model:IsA("Model") then
                     createPlayerEntry(model)
                 end
             end
         end
 
-        for _, child in ipairs(Workspace:GetChildren()) do
+        local children = Workspace:GetChildren()
+        for i = 1, #children do
+            local child = children[i]
             if child:IsA("Model") then
                 createObjectEntry(child)
             end
@@ -418,14 +394,26 @@ return function(_)
         end))
     end
 
+    local function hideAll()
+        for _, entry in pairs(PLAYER_ENTRIES) do
+            entry.box.Visible = false
+        end
+        for _, entry in pairs(OBJECT_ENTRIES) do
+            entry.box.Visible = false
+        end
+    end
+
     local function renderStep()
+        if not camera then
+            camera = Workspace.CurrentCamera
+            if not camera then
+                hideAll()
+                return
+            end
+        end
+
         if not ESP_ENABLED then
-            for _, entry in pairs(PLAYER_ENTRIES) do
-                entry.box.Visible = false
-            end
-            for _, entry in pairs(OBJECT_ENTRIES) do
-                entry.box.Visible = false
-            end
+            hideAll()
             return
         end
 
@@ -438,34 +426,29 @@ return function(_)
                 if not model:IsDescendantOf(Workspace) then
                     cleanupPlayerEntry(model)
                 else
-                    local canRenderPlayer = true
-
-                    if (not entry.head or not entry.head.Parent) or (not entry.torso or not entry.torso.Parent) then
+                    local canRender = true
+                    if not entry.head or not entry.head.Parent or not entry.torso or not entry.torso.Parent then
                         local newHead, newTorso = resolvePlayerParts(model)
-                        if not newHead or not newTorso then
-                            canRenderPlayer = false
-                        else
+                        if newHead and newTorso then
                             entry.head = newHead
                             entry.torso = newTorso
                             entry.isVisible = newTorso.Transparency <= 0.95
+                        else
+                            canRender = false
                         end
                     end
 
-                    if canRenderPlayer then
-                        if isTeammate(model) or not entry.isVisible then
-                            entry.box.Visible = false
-                        else
-                            local ok, x, y, w, h = getPlayerBox2D(entry.head, entry.torso)
-                            if ok then
-                                entry.box.Position = Vector2.new(x, y)
-                                entry.box.Size = Vector2.new(w, h)
-                                entry.box.Visible = true
-                            else
-                                entry.box.Visible = false
-                            end
-                        end
-                    else
+                    if not canRender or isTeammate(model) or not entry.isVisible then
                         entry.box.Visible = false
+                    else
+                        local ok, x, y, w, h = getPlayerBox2D(entry.head, entry.torso)
+                        if ok then
+                            entry.box.Position = Vector2new(x, y)
+                            entry.box.Size = Vector2new(w, h)
+                            entry.box.Visible = true
+                        else
+                            entry.box.Visible = false
+                        end
                     end
                 end
             end
@@ -480,24 +463,11 @@ return function(_)
                 if not model:IsDescendantOf(Workspace) then
                     cleanupObjectEntry(model)
                 else
-                    local canRenderObject = true
-
-                    if not entry.part or not entry.part.Parent then
-                        entry.part = resolveObjectPart(model)
-                        if not entry.part then
-                            canRenderObject = false
-                        end
-                    end
-
-                    if canRenderObject then
-                        local ok, x, y, w, h = getObjectBox2D(model)
-                        if ok then
-                            entry.box.Position = Vector2.new(x, y)
-                            entry.box.Size = Vector2.new(w, h)
-                            entry.box.Visible = true
-                        else
-                            entry.box.Visible = false
-                        end
+                    local ok, x, y, w, h = getObjectBox2D(model)
+                    if ok then
+                        entry.box.Position = Vector2new(x, y)
+                        entry.box.Size = Vector2new(w, h)
+                        entry.box.Visible = true
                     else
                         entry.box.Visible = false
                     end
@@ -619,9 +589,9 @@ return function(_)
             RENDER_CONNECTION = nil
         end
 
-        for _, conn in ipairs(CONNECTIONS) do
+        for i = 1, #CONNECTIONS do
             pcall(function()
-                conn:Disconnect()
+                CONNECTIONS[i]:Disconnect()
             end)
         end
         table.clear(CONNECTIONS)
@@ -638,5 +608,4 @@ return function(_)
 
     return M
 end
-
 

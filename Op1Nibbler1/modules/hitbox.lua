@@ -9,6 +9,7 @@ return function(_)
         return fn
     end
     local Workspace = cloneref(game:GetService("Workspace"))
+    local Players = cloneref(game:GetService("Players"))
     local UserInputService = cloneref(game:GetService("UserInputService"))
     local RunService = cloneref(game:GetService("RunService"))
     local task_delay = clonefunction(task.delay)
@@ -37,7 +38,7 @@ return function(_)
     local globalConnections = {}
     local modifiedHeads = {}
     local originalData = {}
-    local viewmodelData = {}
+    local viewmodelConnections = {}
 
     local M = {
         enabled = ENABLED,
@@ -96,8 +97,6 @@ return function(_)
     local teamCache = {}
     local lastCacheUpdate = 0
     local CACHE_INTERVAL = 0.7
-    local UPDATE_INTERVAL = 0.12
-    local accumulatedDt = 0
 
     local updateTeamCache = newcclosure(function()
         teamCache = {}
@@ -120,7 +119,7 @@ return function(_)
     end)
 
     -- hitboxes
-    local shouldModify = newcclosure(function(vm, data)
+    local shouldModify = newcclosure(function(vm)
         if not ENABLED then
             return false
         end
@@ -130,8 +129,8 @@ return function(_)
         if vm.Name == "LocalViewmodel" then
             return false
         end
-        local head = data and data.head or vm:FindFirstChild("head")
-        local torso = data and data.torso or vm:FindFirstChild("torso")
+        local head = vm:FindFirstChild("head")
+        local torso = vm:FindFirstChild("torso")
         if not head or not torso then
             return false
         end
@@ -179,19 +178,12 @@ return function(_)
             return
         end
 
-        local data = viewmodelData[vm]
-        local head = data and data.head
-        if not head then
-            head = vm:FindFirstChild("head")
-            if data then
-                data.head = head
-            end
-        end
+        local head = vm:FindFirstChild("head")
         if not head then
             return
         end
 
-        if shouldModify(vm, data) then
+        if shouldModify(vm) then
             applyHitbox(head)
         else
             resetHead(head)
@@ -200,19 +192,13 @@ return function(_)
 
     -- cleanups
     local cleanupViewmodel = newcclosure(function(vm)
-        local data = viewmodelData[vm]
-        if data then
-            for _, conn in ipairs(data.connections) do
+        if viewmodelConnections[vm] then
+            for _, conn in ipairs(viewmodelConnections[vm]) do
                 pcall(function()
                     conn:Disconnect()
                 end)
             end
-            if data.torsoConn then
-                pcall(function()
-                    data.torsoConn:Disconnect()
-                end)
-            end
-            viewmodelData[vm] = nil
+            viewmodelConnections[vm] = nil
         end
 
         for head in pairs(modifiedHeads) do
@@ -223,44 +209,16 @@ return function(_)
     end)
 
     -- init
-    local bindTorsoWatcher
-    bindTorsoWatcher = newcclosure(function(vm)
-        local data = viewmodelData[vm]
-        if not data then
-            return
-        end
-
-        if data.torsoConn then
-            pcall(function()
-                data.torsoConn:Disconnect()
-            end)
-            data.torsoConn = nil
-        end
-
-        if data.torso then
-            data.torsoConn = data.torso:GetPropertyChangedSignal("Transparency"):Connect(newcclosure(function()
-                syncViewmodelHitbox(vm)
-            end))
-        end
-    end)
-
     local processViewmodel = newcclosure(function(vm)
-        if not vm or not vm:IsA("Model") or vm.Name == "LocalViewmodel" then
+        if vm.Name == "LocalViewmodel" then
             return
         end
 
-        if viewmodelData[vm] then
+        if viewmodelConnections[vm] then
             return
         end
 
-        local data = {
-            head = vm:FindFirstChild("head"),
-            torso = vm:FindFirstChild("torso"),
-            torsoConn = nil,
-            connections = {}
-        }
-        viewmodelData[vm] = data
-        bindTorsoWatcher(vm)
+        viewmodelConnections[vm] = {}
 
         task_delay(0.1, newcclosure(function()
             syncViewmodelHitbox(vm)
@@ -268,40 +226,36 @@ return function(_)
 
         local childAddedConn = vm.ChildAdded:Connect(newcclosure(function(child)
             if child.Name == "head" or child.Name == "torso" then
-                if child.Name == "head" then
-                    data.head = child
-                else
-                    data.torso = child
-                    bindTorsoWatcher(vm)
-                end
                 task_delay(0.05, newcclosure(function()
                     syncViewmodelHitbox(vm)
                 end))
             end
         end))
-        table_insert(data.connections, childAddedConn)
+        table_insert(viewmodelConnections[vm], childAddedConn)
 
         local childRemovedConn = vm.ChildRemoved:Connect(newcclosure(function(child)
             if child.Name == "head" or child.Name == "torso" then
-                if child.Name == "head" then
-                    data.head = nil
-                else
-                    data.torso = nil
-                    bindTorsoWatcher(vm)
-                end
                 task_delay(0.05, newcclosure(function()
                     syncViewmodelHitbox(vm)
                 end))
             end
         end))
-        table_insert(data.connections, childRemovedConn)
+        table_insert(viewmodelConnections[vm], childRemovedConn)
+
+        local torso = vm:FindFirstChild("torso")
+        if torso then
+            local torsoConn = torso:GetPropertyChangedSignal("Transparency"):Connect(newcclosure(function()
+                syncViewmodelHitbox(vm)
+            end))
+            table_insert(viewmodelConnections[vm], torsoConn)
+        end
 
         local ancestryConn = vm.AncestryChanged:Connect(newcclosure(function(_, parent)
             if not parent then
                 cleanupViewmodel(vm)
             end
         end))
-        table_insert(data.connections, ancestryConn)
+        table_insert(viewmodelConnections[vm], ancestryConn)
     end)
 
     -- toggles
@@ -313,7 +267,6 @@ return function(_)
         if ENABLED then
             updateTeamCache()
             lastCacheUpdate = tick()
-            accumulatedDt = 0
             for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
                 if vm:IsA("Model") then
                     processViewmodel(vm)
@@ -321,7 +274,7 @@ return function(_)
                 end
             end
         else
-            for vm in pairs(viewmodelData) do
+            for vm in pairs(viewmodelConnections) do
                 cleanupViewmodel(vm)
             end
         end
@@ -331,7 +284,7 @@ return function(_)
     updateTeamCache()
 
     table_insert(globalConnections, ViewmodelsFolder.ChildAdded:Connect(newcclosure(function(vm)
-        if ENABLED and vm:IsA("Model") then
+        if vm:IsA("Model") then
             processViewmodel(vm)
         end
     end)))
@@ -342,24 +295,27 @@ return function(_)
         end
     end)))
 
-    table_insert(globalConnections, RunService.Heartbeat:Connect(newcclosure(function(dt)
+    for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+        if vm:IsA("Model") then
+            processViewmodel(vm)
+        end
+    end
+
+    table_insert(globalConnections, RunService.Heartbeat:Connect(newcclosure(function()
         if not ENABLED then
             return
         end
-
-        accumulatedDt = accumulatedDt + dt
-        if accumulatedDt < UPDATE_INTERVAL then
-            return
-        end
-        accumulatedDt = 0
 
         if tick() - lastCacheUpdate > CACHE_INTERVAL then
             updateTeamCache()
             lastCacheUpdate = tick()
         end
 
-        for vm in pairs(viewmodelData) do
-            syncViewmodelHitbox(vm)
+        for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+            if vm:IsA("Model") then
+                processViewmodel(vm)
+                syncViewmodelHitbox(vm)
+            end
         end
     end)))
 
@@ -399,8 +355,10 @@ return function(_)
         if ENABLED then
             updateTeamCache()
             lastCacheUpdate = tick()
-            for vm in pairs(viewmodelData) do
-                syncViewmodelHitbox(vm)
+            for _, vm in ipairs(ViewmodelsFolder:GetChildren()) do
+                if vm:IsA("Model") then
+                    syncViewmodelHitbox(vm)
+                end
             end
         end
     end
