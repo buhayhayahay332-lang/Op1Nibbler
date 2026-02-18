@@ -3,7 +3,12 @@ return function(_)
     local Workspace = game:GetService("Workspace")
     local UserInputService = game:GetService("UserInputService")
 
-    local EXUNYS_LOCAL_PATH = "modules/exunys_esp_core.lua"
+    local EXUNYS_LOCAL_PATHS = {
+        "modules/exunys_esp_core.lua",
+        "./modules/exunys_esp_core.lua",
+        "exunys_esp_core.lua"
+    }
+    local EXUNYS_FALLBACK_URL = "https://raw.githubusercontent.com/Exunys/Exunys-ESP/main/src/ESP.lua"
 
     local ESP_ENABLED = false
     local TEAM_CHECK = true
@@ -148,18 +153,40 @@ return function(_)
 
     local exunysSourceCache = nil
 
+    local function readLocalExunysSource()
+        if not readfile then
+            return nil
+        end
+
+        for _, filePath in ipairs(EXUNYS_LOCAL_PATHS) do
+            local ok, source = pcall(function()
+                return readfile(filePath)
+            end)
+            if ok and type(source) == "string" and #source > 0 then
+                return source
+            end
+        end
+
+        return nil
+    end
+
     local function getPatchedExunysSource()
         if exunysSourceCache then
             return exunysSourceCache
         end
 
-        local ok, source = pcall(function()
-            if readfile then
-                return readfile(EXUNYS_LOCAL_PATH)
+        local source = readLocalExunysSource()
+
+        if (not source or #source == 0) and game.HttpGet then
+            local okHttp, remote = pcall(function()
+                return game:HttpGet(EXUNYS_FALLBACK_URL)
+            end)
+            if okHttp and type(remote) == "string" and #remote > 0 then
+                source = remote
             end
-            return nil
-        end)
-        if not ok or type(source) ~= "string" then
+        end
+
+        if type(source) ~= "string" or #source == 0 then
             return nil
         end
 
@@ -183,33 +210,15 @@ return function(_)
     end
 
     local function createExunysInstance(color, thickness, transparency)
-        local env = nil
-
-        if loadfile then
-            local okLoad, chunk = pcall(loadfile, EXUNYS_LOCAL_PATH)
-            if okLoad and chunk then
-                local okRun, loaded = pcall(chunk)
-                if okRun and type(loaded) == "table" then
-                    env = loaded
-                end
-            end
+        local source = getPatchedExunysSource()
+        if not source then
+            return nil
         end
 
-        if not env then
-            local source = getPatchedExunysSource()
-            if not source then
-                return nil
-            end
-
-            local ok, loaded = pcall(function()
-                return loadstring(source)()
-            end)
-            if ok and type(loaded) == "table" then
-                env = loaded
-            end
-        end
-
-        if type(env) ~= "table" then
+        local ok, env = pcall(function()
+            return loadstring(source)()
+        end)
+        if not ok or type(env) ~= "table" then
             return nil
         end
 
@@ -277,7 +286,7 @@ return function(_)
         Exunys.loaded = true
 
         if not Exunys.player or not Exunys.drone or not Exunys.claymore or not Exunys.proximity or not Exunys.sticky then
-            warn("[ESP] Failed to initialize one or more Exunys instances")
+            warn("[ESP] Failed to initialize one or more Exunys instances (check local Exunys core path/readfile support)")
             return false
         end
 
@@ -744,5 +753,8 @@ return function(_)
 
     return M
 end
+
+
+
 
 
