@@ -284,6 +284,24 @@ return function(_)
             Chams = false
         }
     end
+    local function refreshWrappedHandle(entry)
+        if not entry or not entry.wrapped or entry.wrappedHash or not entry.wrappedPart then
+            return
+        end
+
+        local instance = entry.instance
+        if not instance or type(instance.GetEntry) ~= "function" then
+            return
+        end
+
+        local ok, wrappedEntry = pcall(function()
+            return instance.GetEntry(entry.wrappedPart)
+        end)
+
+        if ok and type(wrappedEntry) == "table" and wrappedEntry.Hash then
+            entry.wrappedHash = wrappedEntry.Hash
+        end
+    end
 
     local function wrapEntry(entry)
         if not entry or entry.wrapped or not entry.part or not entry.part.Parent then
@@ -295,15 +313,15 @@ return function(_)
             return
         end
 
-        local wrappedHash = nil
         local ok = pcall(function()
-            wrappedHash = instance.WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
+            instance.WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
         end)
 
         if ok then
             entry.wrapped = true
-            entry.wrappedHash = wrappedHash
+            entry.wrappedHash = nil
             entry.wrappedPart = entry.part
+            refreshWrappedHandle(entry)
         else
             entry.wrapped = false
             entry.wrappedHash = nil
@@ -315,6 +333,8 @@ return function(_)
         if not entry or not entry.wrapped then
             return
         end
+
+        refreshWrappedHandle(entry)
 
         local instance = entry.instance
         local target = entry.wrappedHash or entry.wrappedPart or entry.part
@@ -550,6 +570,10 @@ return function(_)
 
         if PLAYER_BOX_ENABLED then
             for model, entry in pairs(playerEntries) do
+                if entry.wrapped then
+                    refreshWrappedHandle(entry)
+                end
+
                 if not model:IsDescendantOf(Workspace) then
                     cleanupPlayer(model)
                 elseif shouldShowPlayer(entry, model) then
@@ -566,6 +590,10 @@ return function(_)
 
         if OBJECT_BOX_ENABLED then
             for model, entry in pairs(objectEntries) do
+                if entry.wrapped then
+                    refreshWrappedHandle(entry)
+                end
+
                 if not model:IsDescendantOf(Workspace) then
                     cleanupObject(model)
                 elseif shouldShowObject(entry, model) then
@@ -716,6 +744,9 @@ return function(_)
 
     return M
 end
+
+
+
 
 
 
