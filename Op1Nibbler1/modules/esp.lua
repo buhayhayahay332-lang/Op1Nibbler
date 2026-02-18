@@ -285,11 +285,11 @@ return function(_)
             return
         end
 
-        pcall(function()
-            instance:WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
+        local ok = pcall(function()
+            instance.WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
         end)
 
-        entry.wrapped = true
+        entry.wrapped = ok
     end
 
     local function unwrapEntry(entry)
@@ -664,4 +664,6 @@ return function(_)
 
     return M
 end
+
+
 
