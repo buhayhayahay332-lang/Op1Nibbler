@@ -164,6 +164,11 @@ return function(_)
             'local Connect = __index(game, "DescendantAdded").Connect\nlocal Disconnect = function(Connection)\n\tif Connection and Connection.Disconnect then\n\t\treturn Connection:Disconnect()\n\tend\nend'
         )
 
+        source = source:gsub(
+            'if ExunysDeveloperESP and ExunysDeveloperESP%.Exit then%s*ExunysDeveloperESP:Exit%(%)[%s\r\n]*end',
+            '-- patched: allow multiple Exunys environments in one script'
+        )
+
         exunysSourceCache = source
         return exunysSourceCache
     end
@@ -664,6 +669,7 @@ return function(_)
 
     return M
 end
+
 
 
 
