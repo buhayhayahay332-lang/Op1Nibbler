@@ -28,8 +28,8 @@ return function(_)
     local CONNECTIONS = {}
     local RENDER_CONNECTION = nil
 
-    local CACHED_CORNERS = table.create(8)
-    local CACHED_POINTS = table.create(4)
+    local CACHED_CORNERS = {}
+    local CACHED_POINTS = {}
 
     local M = {
         initialized = false,
@@ -438,31 +438,36 @@ return function(_)
                 if not model:IsDescendantOf(Workspace) then
                     cleanupPlayerEntry(model)
                 else
+                    local canRenderPlayer = true
+
                     if (not entry.head or not entry.head.Parent) or (not entry.torso or not entry.torso.Parent) then
                         local newHead, newTorso = resolvePlayerParts(model)
                         if not newHead or not newTorso then
-                            entry.box.Visible = false
-                            goto continue_players
+                            canRenderPlayer = false
+                        else
+                            entry.head = newHead
+                            entry.torso = newTorso
+                            entry.isVisible = newTorso.Transparency <= 0.95
                         end
-                        entry.head = newHead
-                        entry.torso = newTorso
-                        entry.isVisible = newTorso.Transparency <= 0.95
                     end
 
-                    if isTeammate(model) or not entry.isVisible then
-                        entry.box.Visible = false
-                    else
-                        local ok, x, y, w, h = getPlayerBox2D(entry.head, entry.torso)
-                        if ok then
-                            entry.box.Position = Vector2.new(x, y)
-                            entry.box.Size = Vector2.new(w, h)
-                            entry.box.Visible = true
-                        else
+                    if canRenderPlayer then
+                        if isTeammate(model) or not entry.isVisible then
                             entry.box.Visible = false
+                        else
+                            local ok, x, y, w, h = getPlayerBox2D(entry.head, entry.torso)
+                            if ok then
+                                entry.box.Position = Vector2.new(x, y)
+                                entry.box.Size = Vector2.new(w, h)
+                                entry.box.Visible = true
+                            else
+                                entry.box.Visible = false
+                            end
                         end
+                    else
+                        entry.box.Visible = false
                     end
                 end
-                ::continue_players::
             end
         else
             for _, entry in pairs(PLAYER_ENTRIES) do
@@ -475,24 +480,28 @@ return function(_)
                 if not model:IsDescendantOf(Workspace) then
                     cleanupObjectEntry(model)
                 else
+                    local canRenderObject = true
+
                     if not entry.part or not entry.part.Parent then
                         entry.part = resolveObjectPart(model)
                         if not entry.part then
-                            entry.box.Visible = false
-                            goto continue_objects
+                            canRenderObject = false
                         end
                     end
 
-                    local ok, x, y, w, h = getObjectBox2D(model)
-                    if ok then
-                        entry.box.Position = Vector2.new(x, y)
-                        entry.box.Size = Vector2.new(w, h)
-                        entry.box.Visible = true
+                    if canRenderObject then
+                        local ok, x, y, w, h = getObjectBox2D(model)
+                        if ok then
+                            entry.box.Position = Vector2.new(x, y)
+                            entry.box.Size = Vector2.new(w, h)
+                            entry.box.Visible = true
+                        else
+                            entry.box.Visible = false
+                        end
                     else
                         entry.box.Visible = false
                     end
                 end
-                ::continue_objects::
             end
         else
             for _, entry in pairs(OBJECT_ENTRIES) do
@@ -629,3 +638,5 @@ return function(_)
 
     return M
 end
+
+
