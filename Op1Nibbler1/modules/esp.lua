@@ -169,6 +169,11 @@ return function(_)
             '-- patched: allow multiple Exunys environments in one script'
         )
 
+        source = source:gsub('self%.FindFirstChildOfClass%(%s*self%s*,%s*%.%.%.%s*%)', 'self:FindFirstChildOfClass(...)')
+        source = source:gsub('self%.IsDescendantOf%(%s*self%s*,%s*%.%.%.%s*%)', 'self:IsDescendantOf(...)')
+        source = source:gsub('local FindFirstChild, WaitForChild = __index%(%s*game%s*,%s*"FindFirstChild"%s*%), __index%(%s*game%s*,%s*"WaitForChild"%s*%)', 'local FindFirstChild = function(self, ...) return typeof(self) == "Instance" and self:FindFirstChild(...) end\nlocal WaitForChild = function(self, ...) return typeof(self) == "Instance" and self:WaitForChild(...) end')
+        source = source:gsub('local IsA = __index%(%s*game%s*,%s*"IsA"%s*%)', 'local IsA = function(self, ...) return typeof(self) == "Instance" and self:IsA(...) end')
+
         exunysSourceCache = source
         return exunysSourceCache
     end
@@ -669,6 +674,9 @@ return function(_)
 
     return M
 end
+
+
+
 
 
 
