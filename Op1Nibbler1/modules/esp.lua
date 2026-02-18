@@ -295,26 +295,38 @@ return function(_)
             return
         end
 
+        local wrappedHash = nil
         local ok = pcall(function()
-            instance.WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
+            wrappedHash = instance.WrapObject(entry.part, entry.name, allowedBoxOnly(), math.huge)
         end)
 
-        entry.wrapped = ok
+        if ok then
+            entry.wrapped = true
+            entry.wrappedHash = wrappedHash
+            entry.wrappedPart = entry.part
+        else
+            entry.wrapped = false
+            entry.wrappedHash = nil
+            entry.wrappedPart = nil
+        end
     end
 
     local function unwrapEntry(entry)
-        if not entry or not entry.wrapped or not entry.part then
+        if not entry or not entry.wrapped then
             return
         end
 
         local instance = entry.instance
-        if instance then
+        local target = entry.wrappedHash or entry.wrappedPart or entry.part
+        if instance and target then
             pcall(function()
-                instance.UnwrapObject(entry.part)
+                instance.UnwrapObject(target)
             end)
         end
 
         entry.wrapped = false
+        entry.wrappedHash = nil
+        entry.wrappedPart = nil
     end
 
     local function cleanupPlayer(model)
@@ -362,6 +374,8 @@ return function(_)
             part = part,
             name = model.Name,
             wrapped = false,
+            wrappedHash = nil,
+            wrappedPart = nil,
             head = head,
             torso = torso,
             isVisible = torso.Transparency <= 0.95
@@ -403,7 +417,9 @@ return function(_)
             instance = instance,
             part = part,
             name = model.Name,
-            wrapped = false
+            wrapped = false,
+            wrappedHash = nil,
+            wrappedPart = nil
         }
     end
 
@@ -463,10 +479,31 @@ return function(_)
     end
 
     local function shouldShowPlayer(entry, model)
-        if not entry or not entry.part or not entry.part.Parent then
+        if not entry then
             return false
         end
 
+        local currentPart = resolveModelPart(model)
+        if not currentPart or not currentPart.Parent then
+            return false
+        end
+
+        if currentPart ~= entry.part then
+            unwrapEntry(entry)
+            entry.part = currentPart
+        end
+
+        if not entry.head or not entry.head.Parent then
+            entry.head = model:FindFirstChild("head")
+        end
+        if not entry.torso or not entry.torso.Parent then
+            entry.torso = model:FindFirstChild("torso")
+        end
+        if not entry.head or not entry.torso then
+            return false
+        end
+
+        entry.isVisible = entry.torso.Transparency <= 0.95
         if not entry.isVisible then
             return false
         end
@@ -479,12 +516,17 @@ return function(_)
     end
 
     local function shouldShowObject(entry, model)
-        if not entry or not entry.part or not entry.part.Parent then
+        if not entry then
             return false
         end
 
         local refPart = model:IsA("Model") and resolveModelPart(model) or entry.part
-        if refPart ~= entry.part and refPart then
+        if not refPart or not refPart.Parent then
+            return false
+        end
+
+        if refPart ~= entry.part then
+            unwrapEntry(entry)
             entry.part = refPart
         end
 
@@ -674,6 +716,9 @@ return function(_)
 
     return M
 end
+
+
+
 
 
 
