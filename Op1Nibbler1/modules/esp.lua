@@ -162,29 +162,33 @@ return function(_)
         return head, torso
     end
 
-    local function getPlayerBox2D(head, torso)
-        if not head or not torso then
-            return false
-        end
-        local torsoPos = torso.Position
-        if not isInFrustum(torsoPos) or not onScreen(torsoPos) then
+    local function getPlayerBox2D(model, torso)
+        if not model then
             return false
         end
 
-        local hsx, hsy = head.Size.X * 0.5, head.Size.Y * 0.5
-        local tsx, tsy = torso.Size.X * 0.5, torso.Size.Y * 0.5
+        local cf, size = model:GetBoundingBox()
+        local focusPos = torso and torso.Position or cf.Position
+        if not isInFrustum(focusPos) or not onScreen(focusPos) then
+            return false
+        end
 
-        CACHED_POINTS[1] = head.Position + Vector3new(-hsx, hsy, 0)
-        CACHED_POINTS[2] = head.Position + Vector3new(hsx, hsy, 0)
-        CACHED_POINTS[3] = torso.Position + Vector3new(-tsx, -tsy, 0)
-        CACHED_POINTS[4] = torso.Position + Vector3new(tsx, -tsy, 0)
+        local hx, hy, hz = size.X * 0.5, size.Y * 0.5, size.Z * 0.5
+        CACHED_CORNERS[1] = cf * Vector3new(-hx, -hy, -hz)
+        CACHED_CORNERS[2] = cf * Vector3new(-hx, -hy, hz)
+        CACHED_CORNERS[3] = cf * Vector3new(-hx, hy, -hz)
+        CACHED_CORNERS[4] = cf * Vector3new(-hx, hy, hz)
+        CACHED_CORNERS[5] = cf * Vector3new(hx, -hy, -hz)
+        CACHED_CORNERS[6] = cf * Vector3new(hx, -hy, hz)
+        CACHED_CORNERS[7] = cf * Vector3new(hx, hy, -hz)
+        CACHED_CORNERS[8] = cf * Vector3new(hx, hy, hz)
 
         local minX, minY = huge, huge
         local maxX, maxY = -huge, -huge
         local anyVisible = false
 
-        for i = 1, 4 do
-            local screenPos, visible = camera:WorldToViewportPoint(CACHED_POINTS[i])
+        for i = 1, 8 do
+            local screenPos, visible = camera:WorldToViewportPoint(CACHED_CORNERS[i])
             if visible then
                 anyVisible = true
                 local x, y = screenPos.X, screenPos.Y
@@ -441,7 +445,7 @@ return function(_)
                     if not canRender or isTeammate(model) or not entry.isVisible then
                         entry.box.Visible = false
                     else
-                        local ok, x, y, w, h = getPlayerBox2D(entry.head, entry.torso)
+                        local ok, x, y, w, h = getPlayerBox2D(model, entry.torso)
                         if ok then
                             entry.box.Position = Vector2new(x, y)
                             entry.box.Size = Vector2new(w, h)
@@ -608,4 +612,5 @@ return function(_)
 
     return M
 end
+
 
