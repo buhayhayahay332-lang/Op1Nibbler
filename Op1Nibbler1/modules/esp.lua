@@ -3,13 +3,6 @@ return function(_)
     local Workspace = game:GetService("Workspace")
     local UserInputService = game:GetService("UserInputService")
 
-    local EXUNYS_LOCAL_PATHS = {
-        "modules/exunys_esp_core.lua",
-        "./modules/exunys_esp_core.lua",
-        "exunys_esp_core.lua"
-    }
-    local EXUNYS_FALLBACK_URL = "https://raw.githubusercontent.com/Exunys/Exunys-ESP/main/src/ESP.lua"
-
     local ESP_ENABLED = false
     local TEAM_CHECK = true
 
@@ -26,23 +19,17 @@ return function(_)
     local OBJECT_BOX_THICK = 1.5
     local OBJECT_BOX_TRANSP = 0.9
 
-    local teamCache = {}
-    local lastCache = 0
-    local CACHE_INTERVAL = 0.7
+    local TEAM_CACHE = {}
+    local LAST_TEAM_CACHE = 0
+    local TEAM_CACHE_INTERVAL = 0.7
 
-    local playerEntries = {}
-    local objectEntries = {}
-    local connections = {}
-    local mainRenderConn = nil
+    local PLAYER_ENTRIES = {}
+    local OBJECT_ENTRIES = {}
+    local CONNECTIONS = {}
+    local RENDER_CONNECTION = nil
 
-    local Exunys = {
-        player = nil,
-        drone = nil,
-        claymore = nil,
-        proximity = nil,
-        sticky = nil,
-        loaded = false
-    }
+    local CACHED_CORNERS = table.create(8)
+    local CACHED_POINTS = table.create(4)
 
     local M = {
         initialized = false,
@@ -80,7 +67,6 @@ return function(_)
 
         local relativePos = worldPos - camera.CFrame.Position
         local lookDir = camera.CFrame.LookVector
-
         if relativePos:Dot(lookDir) <= 0 then
             return false
         end
@@ -94,7 +80,38 @@ return function(_)
         return angle < math.rad(60)
     end
 
-    local function resolveModelPart(model)
+    local function updateTeamCache()
+        TEAM_CACHE = {}
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj:IsA("Highlight") and obj.Adornee then
+                TEAM_CACHE[obj.Adornee] = true
+            end
+        end
+        LAST_TEAM_CACHE = tick()
+    end
+
+    local function isTeammate(model)
+        if not TEAM_CHECK then
+            return false
+        end
+        if tick() - LAST_TEAM_CACHE > TEAM_CACHE_INTERVAL then
+            updateTeamCache()
+        end
+        return TEAM_CACHE[model] == true
+    end
+
+    local function createBox(color, thickness, transparency, zindex)
+        local box = Drawing.new("Square")
+        box.Visible = false
+        box.Filled = false
+        box.Color = color
+        box.Thickness = thickness
+        box.Transparency = transparency
+        box.ZIndex = zindex
+        return box
+    end
+
+    local function resolveObjectPart(model)
         if not model then
             return nil
         end
@@ -107,359 +124,251 @@ return function(_)
             if model.PrimaryPart then
                 return model.PrimaryPart
             end
-
-            local root = model:FindFirstChild("HumanoidRootPart")
-            if root and root:IsA("BasePart") then
-                return root
-            end
-
-            local torso = model:FindFirstChild("torso")
-            if torso and torso:IsA("BasePart") then
-                return torso
-            end
-
-            local head = model:FindFirstChild("head")
-            if head and head:IsA("BasePart") then
-                return head
-            end
-
             return model:FindFirstChildWhichIsA("BasePart", true)
         end
 
         return nil
     end
 
-    local function updateTeamCache()
-        teamCache = {}
-        for _, v in ipairs(Workspace:GetChildren()) do
-            if v:IsA("Highlight") and v.Adornee then
-                teamCache[v.Adornee] = true
-            end
-        end
-        lastCache = tick()
-    end
-
-    local function isTeammate(model)
-        if not TEAM_CHECK then
-            return false
-        end
-
-        if tick() - lastCache > CACHE_INTERVAL then
-            updateTeamCache()
-        end
-
-        return teamCache[model] == true
-    end
-
-    local exunysSourceCache = nil
-
-    local function readLocalExunysSource()
-        if not readfile then
-            return nil
-        end
-
-        for _, filePath in ipairs(EXUNYS_LOCAL_PATHS) do
-            local ok, source = pcall(function()
-                return readfile(filePath)
-            end)
-            if ok and type(source) == "string" and #source > 0 then
-                return source
-            end
-        end
-
-        return nil
-    end
-
-    local function getPatchedExunysSource()
-        if exunysSourceCache then
-            return exunysSourceCache
-        end
-
-        local source = readLocalExunysSource()
-
-        if (not source or #source == 0) and game.HttpGet then
-            local okHttp, remote = pcall(function()
-                return game:HttpGet(EXUNYS_FALLBACK_URL)
-            end)
-            if okHttp and type(remote) == "string" and #remote > 0 then
-                source = remote
-            end
-        end
-
-        if type(source) ~= "string" or #source == 0 then
-            return nil
-        end
-
-        source = source:gsub(
-            'local Connect, Disconnect = __index%(%s*game%s*,%s*"DescendantAdded"%s*%)%.Connect',
-            'local Connect = __index(game, "DescendantAdded").Connect\nlocal Disconnect = function(Connection)\n\tif Connection and Connection.Disconnect then\n\t\treturn Connection:Disconnect()\n\tend\nend'
-        )
-
-        source = source:gsub(
-            'if ExunysDeveloperESP and ExunysDeveloperESP%.Exit then%s*ExunysDeveloperESP:Exit%(%)[%s\r\n]*end',
-            '-- patched: allow multiple Exunys environments in one script'
-        )
-
-        source = source:gsub('self%.FindFirstChildOfClass%(%s*self%s*,%s*%.%.%.%s*%)', 'self:FindFirstChildOfClass(...)')
-        source = source:gsub('self%.IsDescendantOf%(%s*self%s*,%s*%.%.%.%s*%)', 'self:IsDescendantOf(...)')
-        source = source:gsub('local FindFirstChild, WaitForChild = __index%(%s*game%s*,%s*"FindFirstChild"%s*%), __index%(%s*game%s*,%s*"WaitForChild"%s*%)', 'local FindFirstChild = function(self, ...) return typeof(self) == "Instance" and self:FindFirstChild(...) end\nlocal WaitForChild = function(self, ...) return typeof(self) == "Instance" and self:WaitForChild(...) end')
-        source = source:gsub('local IsA = __index%(%s*game%s*,%s*"IsA"%s*%)', 'local IsA = function(self, ...) return typeof(self) == "Instance" and self:IsA(...) end')
-
-        exunysSourceCache = source
-        return exunysSourceCache
-    end
-
-    local function createExunysInstance(color, thickness, transparency)
-        local source = getPatchedExunysSource()
-        if not source then
-            return nil
-        end
-
-        local ok, env = pcall(function()
-            return loadstring(source)()
-        end)
-        if not ok or type(env) ~= "table" then
-            return nil
-        end
-
-        if type(env.Settings) == "table" then
-            env.Settings.Enabled = true
-            env.Settings.PartsOnly = false
-            env.Settings.TeamCheck = false
-            env.Settings.AliveCheck = false
-            env.Settings.LoadConfigOnLaunch = false
-            env.Settings.EnableTeamColors = false
-            env.Settings.EntityESP = true
-        end
-
-        if type(env.Properties) == "table" then
-            for _, visuals in pairs(env.Properties) do
-                if type(visuals) == "table" and visuals.Enabled ~= nil then
-                    visuals.Enabled = false
-                end
-            end
-
-            if type(env.Properties.Box) == "table" then
-                env.Properties.Box.Enabled = true
-                env.Properties.Box.RainbowColor = false
-                env.Properties.Box.RainbowOutlineColor = false
-                env.Properties.Box.Color = color
-                env.Properties.Box.Transparency = transparency
-                env.Properties.Box.Thickness = thickness
-                env.Properties.Box.Filled = false
-                env.Properties.Box.Outline = false
-            end
-        end
-
-        return env
-    end
-
-    local function setInstanceStyle(instance, color, thickness, transparency)
-        if not instance or type(instance.Properties) ~= "table" then
-            return
-        end
-
-        local box = instance.Properties.Box
-        if type(box) ~= "table" then
-            return
-        end
-
-        box.Enabled = true
-        box.Color = color
-        box.Thickness = thickness
-        box.Transparency = transparency
-        box.Filled = false
-        box.Outline = false
-    end
-
-    local function loadExunys()
-        if Exunys.loaded then
-            return Exunys.player and Exunys.drone and Exunys.claymore and Exunys.proximity and Exunys.sticky
-        end
-
-        Exunys.player = createExunysInstance(PLAYER_BOX_COLOR, PLAYER_BOX_THICK, PLAYER_BOX_TRANSP)
-        Exunys.drone = createExunysInstance(DRONE_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-        Exunys.claymore = createExunysInstance(CLAYMORE_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-        Exunys.proximity = createExunysInstance(PROXIMITY_ALARM_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-        Exunys.sticky = createExunysInstance(STICKY_CAMERA_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-
-        Exunys.loaded = true
-
-        if not Exunys.player or not Exunys.drone or not Exunys.claymore or not Exunys.proximity or not Exunys.sticky then
-            warn("[ESP] Failed to initialize one or more Exunys instances (check local Exunys core path/readfile support)")
-            return false
-        end
-
-        return true
-    end
-
-    local function getObjectInstance(name)
-        if name == "Drone" then
-            return Exunys.drone
-        elseif name == "Claymore" then
-            return Exunys.claymore
-        elseif name == "ProximityAlarm" then
-            return Exunys.proximity
-        elseif name == "StickyCamera" then
-            return Exunys.sticky
-        end
-        return nil
-    end
-
-    local function allowedBoxOnly()
-        return {
-            ESP = false,
-            Tracer = false,
-            HeadDot = false,
-            Box = true,
-            HealthBar = false,
-            Chams = false
-        }
-    end
-
-    local function clearInstance(instance)
-        if not instance or type(instance.UtilityAssets) ~= "table" then
-            return
-        end
-
-        local wrapped = instance.UtilityAssets.WrappedObjects
-        if type(wrapped) ~= "table" then
-            return
-        end
-
-        local hashes = {}
-        for _, wrappedEntry in pairs(wrapped) do
-            if type(wrappedEntry) == "table" and wrappedEntry.Hash then
-                hashes[#hashes + 1] = wrappedEntry.Hash
-            end
-        end
-
-        for _, hash in ipairs(hashes) do
-            pcall(function()
-                instance.UnwrapObject(hash)
-            end)
-        end
-    end
-
-    local function syncInstance(instance, desired)
-        if not instance or type(desired) ~= "table" then
-            return
-        end
-
-        local wrapped = instance.UtilityAssets and instance.UtilityAssets.WrappedObjects
-        if type(wrapped) == "table" then
-            local staleHashes = {}
-            for _, wrappedEntry in pairs(wrapped) do
-                if type(wrappedEntry) == "table" and wrappedEntry.Object then
-                    local wrappedObj = wrappedEntry.Object
-                    local keep = desired[wrappedObj] ~= nil and wrappedObj.Parent ~= nil
-                    if not keep and wrappedEntry.Hash then
-                        staleHashes[#staleHashes + 1] = wrappedEntry.Hash
-                    end
-                end
-            end
-
-            for _, hash in ipairs(staleHashes) do
-                pcall(function()
-                    instance.UnwrapObject(hash)
-                end)
-            end
-        end
-
-        for part, pseudoName in pairs(desired) do
-            if part and part.Parent then
-                local exists = false
-                if type(instance.GetEntry) == "function" then
-                    local ok, wrappedEntry = pcall(function()
-                        return instance.GetEntry(part)
-                    end)
-                    exists = ok and wrappedEntry ~= nil
-                end
-
-                if not exists then
-                    pcall(function()
-                        instance.WrapObject(part, pseudoName, allowedBoxOnly(), math.huge)
-                    end)
-                end
-            end
-        end
-    end
-
-    local function cleanupPlayer(model)
-        local entry = playerEntries[model]
-        if not entry then
-            return
-        end
-
-        if entry.headConn then
-            entry.headConn:Disconnect()
-        end
-        if entry.torsoConn then
-            entry.torsoConn:Disconnect()
-        end
-
-        playerEntries[model] = nil
-    end
-
-    local function cleanupObject(model)
-        objectEntries[model] = nil
-    end
-
-    local function createPlayerEntry(model)
-        if playerEntries[model] or model.Name == "LocalViewmodel" then
-            return
+    local function resolvePlayerParts(model)
+        if not model or not model:IsA("Model") then
+            return nil, nil
         end
 
         local head = model:FindFirstChild("head")
         local torso = model:FindFirstChild("torso")
-        local part = resolveModelPart(model)
-        if not head or not torso or not part then
+
+        if not head then
+            head = model:FindFirstChild("Head")
+        end
+        if not torso then
+            torso = model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or model:FindFirstChild("HumanoidRootPart")
+        end
+
+        if not head or not torso then
+            return nil, nil
+        end
+
+        if not head:IsA("BasePart") or not torso:IsA("BasePart") then
+            return nil, nil
+        end
+
+        return head, torso
+    end
+
+    local function getObjectColorByName(name)
+        if name == "Drone" then
+            return DRONE_BOX_COLOR
+        elseif name == "Claymore" then
+            return CLAYMORE_BOX_COLOR
+        elseif name == "ProximityAlarm" then
+            return PROXIMITY_ALARM_BOX_COLOR
+        elseif name == "StickyCamera" then
+            return STICKY_CAMERA_BOX_COLOR
+        end
+        return nil
+    end
+
+    local function getObjectBox2D(model)
+        local camera = getCamera()
+        if not camera then
+            return false
+        end
+
+        local cf, size = model:GetBoundingBox()
+        if not isInFrustum(cf.Position) or not isOnScreen(cf.Position) then
+            return false
+        end
+
+        local hx, hy, hz = size.X * 0.5, size.Y * 0.5, size.Z * 0.5
+        CACHED_CORNERS[1] = cf * Vector3.new(-hx, -hy, -hz)
+        CACHED_CORNERS[2] = cf * Vector3.new(-hx, -hy, hz)
+        CACHED_CORNERS[3] = cf * Vector3.new(-hx, hy, -hz)
+        CACHED_CORNERS[4] = cf * Vector3.new(-hx, hy, hz)
+        CACHED_CORNERS[5] = cf * Vector3.new(hx, -hy, -hz)
+        CACHED_CORNERS[6] = cf * Vector3.new(hx, -hy, hz)
+        CACHED_CORNERS[7] = cf * Vector3.new(hx, hy, -hz)
+        CACHED_CORNERS[8] = cf * Vector3.new(hx, hy, hz)
+
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        local visible = false
+
+        for i = 1, 8 do
+            local screenPos, onScreen = camera:WorldToViewportPoint(CACHED_CORNERS[i])
+            if onScreen then
+                visible = true
+                local x, y = screenPos.X, screenPos.Y
+                if x < minX then minX = x end
+                if y < minY then minY = y end
+                if x > maxX then maxX = x end
+                if y > maxY then maxY = y end
+            end
+        end
+
+        if not visible then
+            return false
+        end
+
+        return true, minX, minY, maxX - minX, maxY - minY
+    end
+
+    local function getPlayerBox2D(head, torso)
+        local camera = getCamera()
+        if not camera then
+            return false
+        end
+
+        local torsoPos = torso.Position
+        if not isInFrustum(torsoPos) or not isOnScreen(torsoPos) then
+            return false
+        end
+
+        local hsx, hsy = head.Size.X * 0.5, head.Size.Y * 0.5
+        local tsx, tsy = torso.Size.X * 0.5, torso.Size.Y * 0.5
+
+        CACHED_POINTS[1] = head.Position + Vector3.new(-hsx, hsy, 0)
+        CACHED_POINTS[2] = head.Position + Vector3.new(hsx, hsy, 0)
+        CACHED_POINTS[3] = torso.Position + Vector3.new(-tsx, -tsy, 0)
+        CACHED_POINTS[4] = torso.Position + Vector3.new(tsx, -tsy, 0)
+
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        local visible = false
+
+        for i = 1, 4 do
+            local screenPos, onScreen = camera:WorldToViewportPoint(CACHED_POINTS[i])
+            if onScreen then
+                visible = true
+                local x, y = screenPos.X, screenPos.Y
+                if x < minX then minX = x end
+                if y < minY then minY = y end
+                if x > maxX then maxX = x end
+                if y > maxY then maxY = y end
+            end
+        end
+
+        if not visible then
+            return false
+        end
+
+        local padding = 3
+        return true, minX - padding, minY - padding, (maxX - minX) + padding * 2, (maxY - minY) + padding * 2
+    end
+
+    local function cleanupPlayerEntry(model)
+        local entry = PLAYER_ENTRIES[model]
+        if not entry then
+            return
+        end
+
+        if entry.headConn then entry.headConn:Disconnect() end
+        if entry.torsoConn then entry.torsoConn:Disconnect() end
+        if entry.ancestryConn then entry.ancestryConn:Disconnect() end
+        if entry.box then entry.box:Remove() end
+
+        PLAYER_ENTRIES[model] = nil
+    end
+
+    local function cleanupObjectEntry(model)
+        local entry = OBJECT_ENTRIES[model]
+        if not entry then
+            return
+        end
+
+        if entry.ancestryConn then entry.ancestryConn:Disconnect() end
+        if entry.box then entry.box:Remove() end
+
+        OBJECT_ENTRIES[model] = nil
+    end
+
+    local function createPlayerEntry(model)
+        if PLAYER_ENTRIES[model] or model.Name == "LocalViewmodel" then
+            return
+        end
+
+        local head, torso = resolvePlayerParts(model)
+        if not head or not torso then
             return
         end
 
         local entry = {
-            part = part,
-            name = model.Name,
+            box = createBox(PLAYER_BOX_COLOR, PLAYER_BOX_THICK, PLAYER_BOX_TRANSP, 2),
             head = head,
             torso = torso,
             isVisible = torso.Transparency <= 0.95
         }
 
         entry.headConn = head:GetPropertyChangedSignal("Transparency"):Connect(function()
-            local cached = playerEntries[model]
+            local cached = PLAYER_ENTRIES[model]
             if cached and cached.torso then
                 cached.isVisible = cached.torso.Transparency <= 0.95
             end
         end)
 
         entry.torsoConn = torso:GetPropertyChangedSignal("Transparency"):Connect(function()
-            local cached = playerEntries[model]
+            local cached = PLAYER_ENTRIES[model]
             if cached and cached.torso then
                 cached.isVisible = cached.torso.Transparency <= 0.95
             end
         end)
 
-        playerEntries[model] = entry
+        entry.ancestryConn = model.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                cleanupPlayerEntry(model)
+            end
+        end)
+
+        PLAYER_ENTRIES[model] = entry
     end
 
     local function createObjectEntry(model)
-        if objectEntries[model] then
+        if OBJECT_ENTRIES[model] then
             return
         end
 
-        if not getObjectInstance(model.Name) then
+        local color = getObjectColorByName(model.Name)
+        if not color then
             return
         end
 
-        local part = resolveModelPart(model)
+        local part = resolveObjectPart(model)
         if not part then
             return
         end
 
-        objectEntries[model] = {
+        local entry = {
             part = part,
-            name = model.Name
+            box = createBox(color, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP, 3)
         }
+
+        entry.ancestryConn = model.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                cleanupObjectEntry(model)
+            end
+        end)
+
+        OBJECT_ENTRIES[model] = entry
+    end
+
+    local function applyStyles()
+        for _, entry in pairs(PLAYER_ENTRIES) do
+            local box = entry.box
+            box.Color = PLAYER_BOX_COLOR
+            box.Thickness = PLAYER_BOX_THICK
+            box.Transparency = PLAYER_BOX_TRANSP
+        end
+
+        for model, entry in pairs(OBJECT_ENTRIES) do
+            local box = entry.box
+            box.Thickness = OBJECT_BOX_THICK
+            box.Transparency = OBJECT_BOX_TRANSP
+
+            local c = getObjectColorByName(model.Name)
+            if c then
+                box.Color = c
+            end
+        end
     end
 
     local function scanInitial()
@@ -482,7 +391,7 @@ return function(_)
     local function bindWorkspace()
         local vmFolder = Workspace:FindFirstChild("Viewmodels")
         if vmFolder then
-            table.insert(connections, vmFolder.ChildAdded:Connect(function(model)
+            table.insert(CONNECTIONS, vmFolder.ChildAdded:Connect(function(model)
                 if model:IsA("Model") then
                     task.delay(0.25, function()
                         createPlayerEntry(model)
@@ -491,9 +400,9 @@ return function(_)
             end))
         end
 
-        table.insert(connections, Workspace.ChildAdded:Connect(function(child)
+        table.insert(CONNECTIONS, Workspace.ChildAdded:Connect(function(child)
             if child:IsA("Folder") and child.Name == "Viewmodels" then
-                table.insert(connections, child.ChildAdded:Connect(function(model)
+                table.insert(CONNECTIONS, child.ChildAdded:Connect(function(model)
                     if model:IsA("Model") then
                         task.delay(0.25, function()
                             createPlayerEntry(model)
@@ -509,108 +418,87 @@ return function(_)
         end))
     end
 
-    local function applyStyles()
-        setInstanceStyle(Exunys.player, PLAYER_BOX_COLOR, PLAYER_BOX_THICK, PLAYER_BOX_TRANSP)
-        setInstanceStyle(Exunys.drone, DRONE_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-        setInstanceStyle(Exunys.claymore, CLAYMORE_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-        setInstanceStyle(Exunys.proximity, PROXIMITY_ALARM_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-        setInstanceStyle(Exunys.sticky, STICKY_CAMERA_BOX_COLOR, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP)
-    end
-
-    local function shouldShowPlayer(entry, model)
-        if not entry then
-            return false
-        end
-
-        local currentPart = resolveModelPart(model)
-        if not currentPart or not currentPart.Parent then
-            return false
-        end
-        entry.part = currentPart
-
-        if not entry.head or not entry.head.Parent then
-            entry.head = model:FindFirstChild("head")
-        end
-        if not entry.torso or not entry.torso.Parent then
-            entry.torso = model:FindFirstChild("torso")
-        end
-        if not entry.head or not entry.torso then
-            return false
-        end
-
-        entry.isVisible = entry.torso.Transparency <= 0.95
-        if not entry.isVisible then
-            return false
-        end
-
-        if isTeammate(model) then
-            return false
-        end
-
-        return isInFrustum(entry.part.Position) and isOnScreen(entry.part.Position)
-    end
-
-    local function shouldShowObject(entry, model)
-        if not entry then
-            return false
-        end
-
-        local currentPart = resolveModelPart(model)
-        if not currentPart or not currentPart.Parent then
-            return false
-        end
-
-        entry.part = currentPart
-
-        return isInFrustum(entry.part.Position) and isOnScreen(entry.part.Position)
-    end
-
     local function renderStep()
-        local desiredPlayer = {}
-        local desiredDrone = {}
-        local desiredClaymore = {}
-        local desiredProximity = {}
-        local desiredSticky = {}
-
-        if ESP_ENABLED then
-            if tick() - lastCache > CACHE_INTERVAL then
-                updateTeamCache()
+        if not ESP_ENABLED then
+            for _, entry in pairs(PLAYER_ENTRIES) do
+                entry.box.Visible = false
             end
+            for _, entry in pairs(OBJECT_ENTRIES) do
+                entry.box.Visible = false
+            end
+            return
+        end
 
-            if PLAYER_BOX_ENABLED then
-                for model, entry in pairs(playerEntries) do
-                    if not model:IsDescendantOf(Workspace) then
-                        cleanupPlayer(model)
-                    elseif shouldShowPlayer(entry, model) then
-                        desiredPlayer[entry.part] = entry.name
+        if tick() - LAST_TEAM_CACHE > TEAM_CACHE_INTERVAL then
+            updateTeamCache()
+        end
+
+        if PLAYER_BOX_ENABLED then
+            for model, entry in pairs(PLAYER_ENTRIES) do
+                if not model:IsDescendantOf(Workspace) then
+                    cleanupPlayerEntry(model)
+                else
+                    if (not entry.head or not entry.head.Parent) or (not entry.torso or not entry.torso.Parent) then
+                        local newHead, newTorso = resolvePlayerParts(model)
+                        if not newHead or not newTorso then
+                            entry.box.Visible = false
+                            goto continue_players
+                        end
+                        entry.head = newHead
+                        entry.torso = newTorso
+                        entry.isVisible = newTorso.Transparency <= 0.95
                     end
-                end
-            end
 
-            if OBJECT_BOX_ENABLED then
-                for model, entry in pairs(objectEntries) do
-                    if not model:IsDescendantOf(Workspace) then
-                        cleanupObject(model)
-                    elseif shouldShowObject(entry, model) then
-                        if model.Name == "Drone" then
-                            desiredDrone[entry.part] = entry.name
-                        elseif model.Name == "Claymore" then
-                            desiredClaymore[entry.part] = entry.name
-                        elseif model.Name == "ProximityAlarm" then
-                            desiredProximity[entry.part] = entry.name
-                        elseif model.Name == "StickyCamera" then
-                            desiredSticky[entry.part] = entry.name
+                    if isTeammate(model) or not entry.isVisible then
+                        entry.box.Visible = false
+                    else
+                        local ok, x, y, w, h = getPlayerBox2D(entry.head, entry.torso)
+                        if ok then
+                            entry.box.Position = Vector2.new(x, y)
+                            entry.box.Size = Vector2.new(w, h)
+                            entry.box.Visible = true
+                        else
+                            entry.box.Visible = false
                         end
                     end
                 end
+                ::continue_players::
+            end
+        else
+            for _, entry in pairs(PLAYER_ENTRIES) do
+                entry.box.Visible = false
             end
         end
 
-        syncInstance(Exunys.player, desiredPlayer)
-        syncInstance(Exunys.drone, desiredDrone)
-        syncInstance(Exunys.claymore, desiredClaymore)
-        syncInstance(Exunys.proximity, desiredProximity)
-        syncInstance(Exunys.sticky, desiredSticky)
+        if OBJECT_BOX_ENABLED then
+            for model, entry in pairs(OBJECT_ENTRIES) do
+                if not model:IsDescendantOf(Workspace) then
+                    cleanupObjectEntry(model)
+                else
+                    if not entry.part or not entry.part.Parent then
+                        entry.part = resolveObjectPart(model)
+                        if not entry.part then
+                            entry.box.Visible = false
+                            goto continue_objects
+                        end
+                    end
+
+                    local ok, x, y, w, h = getObjectBox2D(model)
+                    if ok then
+                        entry.box.Position = Vector2.new(x, y)
+                        entry.box.Size = Vector2.new(w, h)
+                        entry.box.Visible = true
+                    else
+                        entry.box.Visible = false
+                    end
+                end
+                ::continue_objects::
+            end
+        else
+            for _, entry in pairs(OBJECT_ENTRIES) do
+                entry.box.Visible = false
+            end
+        end
     end
 
     function M:Init()
@@ -618,18 +506,13 @@ return function(_)
             return
         end
 
-        if not loadExunys() then
-            return
-        end
-
         updateTeamCache()
-        applyStyles()
         scanInitial()
         bindWorkspace()
 
-        mainRenderConn = RunService.RenderStepped:Connect(renderStep)
+        RENDER_CONNECTION = RunService.RenderStepped:Connect(renderStep)
 
-        table.insert(connections, UserInputService.InputBegan:Connect(function(input, gpe)
+        table.insert(CONNECTIONS, UserInputService.InputBegan:Connect(function(input, gpe)
             if gpe then
                 return
             end
@@ -656,21 +539,20 @@ return function(_)
     function M:SetPlayerBoxEnabled(value)
         PLAYER_BOX_ENABLED = value == true
         self.playerBoxEnabled = PLAYER_BOX_ENABLED
-
         if not PLAYER_BOX_ENABLED then
-            clearInstance(Exunys.player)
+            for _, entry in pairs(PLAYER_ENTRIES) do
+                entry.box.Visible = false
+            end
         end
     end
 
     function M:SetObjectBoxEnabled(value)
         OBJECT_BOX_ENABLED = value == true
         self.objectBoxEnabled = OBJECT_BOX_ENABLED
-
         if not OBJECT_BOX_ENABLED then
-            clearInstance(Exunys.drone)
-            clearInstance(Exunys.claymore)
-            clearInstance(Exunys.proximity)
-            clearInstance(Exunys.sticky)
+            for _, entry in pairs(OBJECT_ENTRIES) do
+                entry.box.Visible = false
+            end
         end
     end
 
@@ -723,29 +605,23 @@ return function(_)
     function M:Unload()
         ESP_ENABLED = false
 
-        if mainRenderConn then
-            mainRenderConn:Disconnect()
-            mainRenderConn = nil
+        if RENDER_CONNECTION then
+            RENDER_CONNECTION:Disconnect()
+            RENDER_CONNECTION = nil
         end
 
-        for _, conn in ipairs(connections) do
+        for _, conn in ipairs(CONNECTIONS) do
             pcall(function()
                 conn:Disconnect()
             end)
         end
-        table.clear(connections)
+        table.clear(CONNECTIONS)
 
-        clearInstance(Exunys.player)
-        clearInstance(Exunys.drone)
-        clearInstance(Exunys.claymore)
-        clearInstance(Exunys.proximity)
-        clearInstance(Exunys.sticky)
-
-        for model in pairs(playerEntries) do
-            cleanupPlayer(model)
+        for model in pairs(PLAYER_ENTRIES) do
+            cleanupPlayerEntry(model)
         end
-        for model in pairs(objectEntries) do
-            cleanupObject(model)
+        for model in pairs(OBJECT_ENTRIES) do
+            cleanupObjectEntry(model)
         end
 
         self.initialized = false
@@ -753,8 +629,3 @@ return function(_)
 
     return M
 end
-
-
-
-
-
