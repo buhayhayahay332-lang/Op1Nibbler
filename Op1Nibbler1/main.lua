@@ -74,12 +74,16 @@ local Modules = {
     Hitbox = import("modules/hitbox.lua")(ctx),
     SilentAim = import("modules/silent_aim.lua")(ctx),
     GunMods = import("modules/gun_mods.lua")(ctx),
-    ESP = import("modules/esp.lua")(ctx)
+    ESP = import("modules/esp.lua")(ctx),
+    NoSmokeFlash = import("modules/no_smoke_flash.lua")(ctx),
+    RappelFly = import("modules/rappel_fly.lua")(ctx)
 }
 
 Modules.SilentAim:Init()
 Modules.GunMods:Init()
 Modules.ESP:Init()
+Modules.NoSmokeFlash:Init()
+Modules.RappelFly:Init()
 
 import("modules/ui.lua")(ctx, Modules)
 

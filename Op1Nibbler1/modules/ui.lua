@@ -28,6 +28,7 @@ return function(ctx, Modules)
         Combat = Window:AddTab("Combat"),
         Visuals = Window:AddTab("Visuals"),
         World = Window:AddTab("World"),
+        Misc = Window:AddTab("Misc"),
         UI = Window:AddTab("UI Settings")
     }
 
@@ -322,6 +323,52 @@ return function(ctx, Modules)
             Modules.Fullbright:SetAmbient(v)
         end
     })
+
+    local NSF = Tabs.Misc:AddLeftGroupbox("No Smoke / Flash")
+    NSF:AddToggle("nsf_en", {
+        Text = "Enable",
+        Default = Modules.NoSmokeFlash.enabled
+    }):OnChanged(function(v)
+        Modules.NoSmokeFlash:SetEnabled(v)
+    end)
+    NSF:AddToggle("nsf_smoke", {
+        Text = "No Smoke",
+        Default = Modules.NoSmokeFlash.noSmoke
+    }):OnChanged(function(v)
+        Modules.NoSmokeFlash:SetNoSmoke(v)
+    end)
+    NSF:AddToggle("nsf_flash", {
+        Text = "No Flash",
+        Default = Modules.NoSmokeFlash.noFlash
+    }):OnChanged(function(v)
+        Modules.NoSmokeFlash:SetNoFlash(v)
+    end)
+
+    local RF = Tabs.Misc:AddRightGroupbox("Rappel Fly")
+    RF:AddToggle("rf_en", {
+        Text = "Enable",
+        Default = Modules.RappelFly.enabled
+    }):OnChanged(function(v)
+        Modules.RappelFly:SetEnabled(v)
+    end)
+    RF:AddSlider("rf_speed", {
+        Text = "Fly Speed",
+        Default = Modules.RappelFly.speed,
+        Min = 1,
+        Max = 60,
+        Rounding = 1
+    }):OnChanged(function(v)
+        Modules.RappelFly:SetSpeed(v)
+    end)
+    RF:AddSlider("rf_pull", {
+        Text = "Pull Speed",
+        Default = Modules.RappelFly.pullSpeed,
+        Min = 0.1,
+        Max = 10,
+        Rounding = 1
+    }):OnChanged(function(v)
+        Modules.RappelFly:SetPullSpeed(v)
+    end)
 
     local UIG = Tabs.UI:AddLeftGroupbox("Menu")
     UIG:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", {
