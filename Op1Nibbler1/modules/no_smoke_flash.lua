@@ -34,6 +34,7 @@ return function(ctx)
     local modifiedParts = {}
     local modifiedEmitters = {}
     local spoofedSmokeInstances = {}
+    local originalSmokeData = {}
     local dummySignalEvent = Instance_new("BindableEvent")
 
     local oldGetPropertyChangedSignal
@@ -45,6 +46,38 @@ return function(ctx)
         end
         return oldGetPropertyChangedSignal(self, property)
     end))
+
+    -- property spoofing for smoke parts/emitters (similar to hitbox)
+    do
+        local hookmetamethod = Runtime.hookmetamethod or hookmetamethod
+        local getrawmetatable = Runtime.getrawmetatable or getrawmetatable
+        local setreadonly = Runtime.setreadonly or setreadonly
+        if hookmetamethod and getrawmetatable and setreadonly then
+            local mt = getrawmetatable(game)
+            if mt and mt.__index then
+                local old_index = mt.__index
+                setreadonly(mt, false)
+                mt.__index = newcclosure(function(self, key)
+                    local data = originalSmokeData[self]
+                    if data then
+                        if key == "Size" then
+                            return data.Size
+                        elseif key == "Transparency" then
+                            return data.Transparency
+                        elseif key == "Color" then
+                            return data.Color
+                        elseif key == "LocalTransparencyModifier" then
+                            return data.LocalTransparencyModifier
+                        elseif key == "Enabled" and data.Enabled ~= nil then
+                            return data.Enabled
+                        end
+                    end
+                    return old_index(self, key)
+                end)
+                setreadonly(mt, true)
+            end
+        end
+    end
 
     local function getPlayerGui()
         LocalPlayer = Players.LocalPlayer or LocalPlayer
@@ -150,6 +183,12 @@ return function(ctx)
             LocalTransparencyModifier = part.LocalTransparencyModifier,
             Size = part.Size
         }
+        originalSmokeData[part] = {
+            Size = part.Size,
+            Transparency = part.Transparency,
+            Color = part.Color,
+            LocalTransparencyModifier = part.LocalTransparencyModifier
+        }
         spoofedSmokeInstances[part] = true
         part.LocalTransparencyModifier = 1
         part.Size = Vector3.new(0.001, 0.001, 0.001)
@@ -165,6 +204,7 @@ return function(ctx)
             part.Size = original.Size
         end
         spoofedSmokeInstances[part] = nil
+        originalSmokeData[part] = nil
         modifiedParts[part] = nil
     end
 
@@ -173,6 +213,7 @@ return function(ctx)
             return
         end
         modifiedEmitters[emitter] = emitter.Enabled
+        originalSmokeData[emitter] = {Enabled = emitter.Enabled}
         spoofedSmokeInstances[emitter] = true
         emitter.Enabled = false
     end
@@ -186,6 +227,7 @@ return function(ctx)
             emitter.Enabled = original
         end
         spoofedSmokeInstances[emitter] = nil
+        originalSmokeData[emitter] = nil
         modifiedEmitters[emitter] = nil
     end
 
