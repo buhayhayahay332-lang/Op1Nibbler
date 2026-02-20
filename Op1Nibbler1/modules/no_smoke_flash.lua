@@ -24,34 +24,48 @@ return function(ctx)
 
     local initialized = false
     local smokeConnection = nil
+
     local flashPlayerGuiConnection = nil
-    local flashChildAddedConnection = nil
+    local flashGuiChildConnection = nil
     local flashEnabledConnection = nil
     local flashAncestryConnection = nil
+    local flashGui = nil
+    local flashOriginalEnabled = nil
+    local flashBypassActive = false
+    local flashHookTarget = nil
+    local flashNewIndexHookInstalled = false
+    local oldFlashNewIndex = nil
 
     local modifiedParts = {}
     local modifiedEmitters = {}
     local spoofedSmokeInstances = {}
-    local spoofedFlashInstances = {}
     local dummySignalEvent = Instance_new("BindableEvent")
-
-    local flashHookTarget = nil
-    local flashNewIndexHookInstalled = false
-    local oldFlashNewIndex = nil
-    local flashGui = nil
-    local flashOriginalEnabled = nil
-    local flashBypassActive = false
 
     local oldGetPropertyChangedSignal
     oldGetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
-        local shouldBlock = (spoofedSmokeInstances[self] and M.enabled and M.noSmoke) or
-                                (spoofedFlashInstances[self] and M.enabled and M.noFlash)
-        if shouldBlock and (property == "Size" or property == "Transparency" or property == "LocalTransparencyModifier" or
-            property == "Color" or property == "Enabled" or property == "Visible") then
-            return dummySignalEvent.Event
+        if spoofedSmokeInstances[self] and M.enabled and M.noSmoke then
+            if property == "Size" or property == "Transparency" or property == "LocalTransparencyModifier" or property == "Color" or
+                property == "Enabled" then
+                return dummySignalEvent.Event
+            end
         end
         return oldGetPropertyChangedSignal(self, property)
     end))
+
+    local function getPlayerGui()
+        if not LocalPlayer then
+            return nil
+        end
+        return LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    end
+
+    local function getFlashGui()
+        local playerGui = getPlayerGui()
+        if not playerGui then
+            return nil
+        end
+        return playerGui:FindFirstChild("Flash")
+    end
 
     local function ensureFlashNewIndexSpoof(target)
         local hookmetamethod = Runtime.hookmetamethod or hookmetamethod
@@ -73,21 +87,6 @@ return function(ctx)
         flashNewIndexHookInstalled = true
     end
 
-    local function getPlayerGui()
-        if not LocalPlayer then
-            return nil
-        end
-        return LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    end
-
-    local function getFlashGui()
-        local playerGui = getPlayerGui()
-        if not playerGui then
-            return nil
-        end
-        return playerGui:FindFirstChild("Flash")
-    end
-
     local function clearFlashConnections()
         if flashEnabledConnection then
             flashEnabledConnection:Disconnect()
@@ -100,11 +99,9 @@ return function(ctx)
     end
 
     local function forceFlashDisabled()
-        if not flashGui or not flashGui.Parent then
-            return
+        if flashGui and flashGui.Parent then
+            flashGui.Enabled = false
         end
-        spoofedFlashInstances[flashGui] = true
-        flashGui.Enabled = false
     end
 
     local function bindFlashInstance()
@@ -113,9 +110,6 @@ return function(ctx)
             return flashGui
         end
 
-        if flashGui then
-            spoofedFlashInstances[flashGui] = nil
-        end
         clearFlashConnections()
         flashGui = latestFlash
 
@@ -133,7 +127,6 @@ return function(ctx)
 
         flashAncestryConnection = flashGui.AncestryChanged:Connect(newcclosure(function(_, parent)
             if not parent then
-                spoofedFlashInstances[flashGui] = nil
                 clearFlashConnections()
                 flashGui = nil
                 if flashBypassActive then
@@ -142,11 +135,6 @@ return function(ctx)
                 end
             end
         end))
-
-        if flashBypassActive then
-            flashOriginalEnabled = flashGui.Enabled
-            forceFlashDisabled()
-        end
 
         return flashGui
     end
@@ -164,11 +152,8 @@ return function(ctx)
         end
 
         flashBypassActive = false
-        if flashGui then
-            spoofedFlashInstances[flashGui] = nil
-            if flashOriginalEnabled ~= nil then
-                flashGui.Enabled = flashOriginalEnabled
-            end
+        if flashGui and flashOriginalEnabled ~= nil then
+            flashGui.Enabled = flashOriginalEnabled
         end
         flashOriginalEnabled = nil
     end
@@ -283,10 +268,10 @@ return function(ctx)
             end
         end))
 
-        local function bindPlayerGuiWatcher()
-            if flashChildAddedConnection then
-                flashChildAddedConnection:Disconnect()
-                flashChildAddedConnection = nil
+        local function bindFlashChildWatcher()
+            if flashGuiChildConnection then
+                flashGuiChildConnection:Disconnect()
+                flashGuiChildConnection = nil
             end
 
             local playerGui = getPlayerGui()
@@ -294,7 +279,7 @@ return function(ctx)
                 return
             end
 
-            flashChildAddedConnection = playerGui.ChildAdded:Connect(newcclosure(function(child)
+            flashGuiChildConnection = playerGui.ChildAdded:Connect(newcclosure(function(child)
                 if child.Name == "Flash" then
                     bindFlashInstance()
                     refreshFlash()
@@ -302,12 +287,12 @@ return function(ctx)
             end))
         end
 
-        bindPlayerGuiWatcher()
+        bindFlashChildWatcher()
         bindFlashInstance()
 
         flashPlayerGuiConnection = LocalPlayer.ChildAdded:Connect(newcclosure(function(child)
             if child:IsA("PlayerGui") then
-                bindPlayerGuiWatcher()
+                bindFlashChildWatcher()
                 bindFlashInstance()
                 refreshFlash()
             end
