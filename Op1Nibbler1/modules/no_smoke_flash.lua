@@ -9,7 +9,7 @@ return function(ctx)
     local hookfunction = Runtime.hookfunction or hookfunction or function(f)
         return f
     end
-    local Instance_new = Runtime.InstanceNew or cloneref(Instance.new)
+    local Instance_new = Runtime.InstanceNew or Instance.new
 
     local Services = ctx and ctx.Services or {}
     local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
