@@ -1,17 +1,19 @@
 return function(ctx)
-    local cloneref = cloneref or function(obj)
+    local Runtime = ctx and ctx.Runtime or {}
+    local cloneref = Runtime.cloneref or cloneref or function(obj)
         return obj
     end
-    local newcclosure = newcclosure or function(fn)
+    local newcclosure = Runtime.newcclosure or newcclosure or function(fn)
         return fn
     end
-    local hookfunction = hookfunction or function(f)
+    local hookfunction = Runtime.hookfunction or hookfunction or function(f)
         return f
     end
-    local Instance_new = cloneref(Instance.new)
+    local Instance_new = Runtime.InstanceNew or cloneref(Instance.new)
 
-    local Workspace = (ctx and ctx.Services and ctx.Services.Workspace) or cloneref(game:GetService("Workspace"))
-    local Players = cloneref(game:GetService("Players"))
+    local Services = ctx and ctx.Services or {}
+    local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
+    local Players = Services.Players or cloneref(game:GetService("Players"))
     local LocalPlayer = Players.LocalPlayer
 
     local M = {
@@ -48,7 +50,7 @@ return function(ctx)
     end))
 
     local function ensureFlashNewIndexSpoof(target)
-        local hookmetamethod = hookmetamethod
+        local hookmetamethod = Runtime.hookmetamethod or hookmetamethod
         if not hookmetamethod or not target then
             return
         end

@@ -1,20 +1,22 @@
 return function(ctx)
-    local cloneref = cloneref or function(obj)
+    local Runtime = ctx and ctx.Runtime or {}
+    local cloneref = Runtime.cloneref or cloneref or function(obj)
         return obj
     end
-    local clonefunc = clonefunc or clonefunction or function(fn)
+    local clonefunc = Runtime.clonefunction or clonefunc or clonefunction or function(fn)
         return fn
     end
-    local newcclosure = newcclosure or function(fn)
+    local newcclosure = Runtime.newcclosure or newcclosure or function(fn)
         return fn
     end
-    local replaceclosure = replaceclosure or function()
+    local replaceclosure = Runtime.replaceclosure or replaceclosure or function()
     end
 
-    local ReplicatedStorage = (ctx and ctx.Services and ctx.Services.ReplicatedStorage) or cloneref(game:GetService("ReplicatedStorage"))
-    local RunService = (ctx and ctx.Services and ctx.Services.RunService) or cloneref(game:GetService("RunService"))
-    local UserInputService = (ctx and ctx.Services and ctx.Services.UserInputService) or cloneref(game:GetService("UserInputService"))
-    local Players = cloneref(game:GetService("Players"))
+    local Services = ctx and ctx.Services or {}
+    local ReplicatedStorage = Services.ReplicatedStorage or cloneref(game:GetService("ReplicatedStorage"))
+    local RunService = Services.RunService or cloneref(game:GetService("RunService"))
+    local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
+    local Players = Services.Players or cloneref(game:GetService("Players"))
     local LocalPlayer = Players.LocalPlayer
     local camera = cloneref(workspace).CurrentCamera
 
@@ -287,7 +289,7 @@ return function(ctx)
 
         GrappleModule = grapple
 
-        local hookfunction = hookfunction or function(f)
+        local hookfunction = Runtime.hookfunction or hookfunction or function(f)
             return f
         end
 

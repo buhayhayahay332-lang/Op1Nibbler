@@ -3,10 +3,6 @@ if getgenv().__OP1NIBBLER_UI__ then
 end
 getgenv().__OP1NIBBLER_UI__ = true
 
-local cloneref = cloneref or function(v)
-    return v
-end
-
 local function import(path)
     local baseUrl = getgenv().OP1NIBBLER_BASE_URL or
                         "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/Op1Nibbler1/"
@@ -43,12 +39,37 @@ local function import(path)
     error("[Op1Nibbler] Failed to import: " .. path)
 end
 
+local Runtime = {
+    cloneref = cloneref or function(v)
+        return v
+    end,
+    clonefunction = clonefunction or clonefunc or function(v)
+        return v
+    end,
+    newcclosure = newcclosure or function(fn)
+        return fn
+    end,
+    hookfunction = hookfunction or function(f)
+        return f
+    end,
+    hookmetamethod = hookmetamethod,
+    replaceclosure = replaceclosure or function()
+    end,
+    getrawmetatable = getrawmetatable or function()
+        return {}
+    end,
+    setreadonly = setreadonly or function()
+    end
+}
+Runtime.InstanceNew = Runtime.cloneref(Instance.new)
+
 local Services = {
-    Lighting = cloneref(game:GetService("Lighting")),
-    Workspace = cloneref(game:GetService("Workspace")),
-    RunService = cloneref(game:GetService("RunService")),
-    UserInputService = cloneref(game:GetService("UserInputService")),
-    ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
+    Lighting = Runtime.cloneref(game:GetService("Lighting")),
+    Workspace = Runtime.cloneref(game:GetService("Workspace")),
+    RunService = Runtime.cloneref(game:GetService("RunService")),
+    UserInputService = Runtime.cloneref(game:GetService("UserInputService")),
+    ReplicatedStorage = Runtime.cloneref(game:GetService("ReplicatedStorage")),
+    Players = Runtime.cloneref(game:GetService("Players"))
 }
 
 local function safeRequire(pathFn)
@@ -66,6 +87,7 @@ end)
 
 local ctx = {
     Services = Services,
+    Runtime = Runtime,
     GunModule = GunModule
 }
 
