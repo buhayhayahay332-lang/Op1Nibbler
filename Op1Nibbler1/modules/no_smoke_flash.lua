@@ -7,6 +7,7 @@ return function(ctx)
     end
 
     local Workspace = (ctx and ctx.Services and ctx.Services.Workspace) or cloneref(game:GetService("Workspace"))
+    local RunService = (ctx and ctx.Services and ctx.Services.RunService) or cloneref(game:GetService("RunService"))
     local Players = cloneref(game:GetService("Players"))
     local LocalPlayer = Players.LocalPlayer
 
@@ -18,22 +19,56 @@ return function(ctx)
 
     local initialized = false
     local smokeConnection = nil
-    local flashConnection = nil
-    local flashHooked = false
-    local flashGui = nil
+    local flashDescAddedConnection = nil
+    local flashPlayerGuiConnection = nil
+    local flashHeartbeatConnection = nil
+    local flashSweepTimer = 0
 
     local modifiedParts = {}
     local modifiedEmitters = {}
 
-    local function getFlashGui()
+    local function getPlayerGui()
         if not LocalPlayer then
             return nil
         end
-        local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-        if not playerGui then
-            return nil
+        return LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    end
+
+    local function isFlashLike(instance)
+        if not instance or typeof(instance) ~= "Instance" then
+            return false
         end
-        return playerGui:FindFirstChild("Flash")
+        local name = string.lower(instance.Name or "")
+        return name == "flash" or string.find(name, "flash", 1, true) ~= nil
+    end
+
+    local function suppressFlashGui(instance)
+        pcall(function()
+            if instance:IsA("ScreenGui") then
+                instance.Enabled = false
+            end
+        end)
+        pcall(function()
+            if instance:IsA("GuiObject") then
+                instance.Visible = false
+            end
+        end)
+    end
+
+    local function applyNoFlash(root)
+        if not root or not (M.enabled and M.noFlash) then
+            return
+        end
+
+        if isFlashLike(root) then
+            suppressFlashGui(root)
+        end
+
+        for _, desc in ipairs(root:GetDescendants()) do
+            if isFlashLike(desc) then
+                suppressFlashGui(desc)
+            end
+        end
     end
 
     local function applyPart(part)
@@ -127,11 +162,12 @@ return function(ctx)
     end
 
     local function refreshFlash()
-        if not flashGui or not flashGui.Parent then
-            flashGui = getFlashGui()
+        if not (M.enabled and M.noFlash) then
+            return
         end
-        if flashGui and M.enabled and M.noFlash then
-            flashGui.Enabled = false
+        local playerGui = getPlayerGui()
+        if playerGui then
+            applyNoFlash(playerGui)
         end
     end
 
@@ -147,26 +183,57 @@ return function(ctx)
             end
         end))
 
-        flashGui = getFlashGui()
-        if flashGui then
-            local hookmetamethod = hookmetamethod
-            if hookmetamethod then
-                local oldNewIndex
-                oldNewIndex = hookmetamethod(flashGui, "__newindex", newcclosure(function(self, key, value)
-                    if self == flashGui and key == "Enabled" and M.enabled and M.noFlash then
+        local function bindFlashWatcher()
+            if flashDescAddedConnection then
+                flashDescAddedConnection:Disconnect()
+                flashDescAddedConnection = nil
+            end
+
+            local playerGui = getPlayerGui()
+            if not playerGui then
+                return
+            end
+
+            flashDescAddedConnection = playerGui.DescendantAdded:Connect(newcclosure(function(instance)
+                if M.enabled and M.noFlash and isFlashLike(instance) then
+                    suppressFlashGui(instance)
+                end
+            end))
+        end
+
+        bindFlashWatcher()
+
+        flashPlayerGuiConnection = LocalPlayer.ChildAdded:Connect(newcclosure(function(child)
+            if child:IsA("PlayerGui") then
+                bindFlashWatcher()
+                refreshFlash()
+            end
+        end))
+
+        local hookmetamethod = hookmetamethod
+        if hookmetamethod then
+            local oldNewIndex
+            oldNewIndex = hookmetamethod(game, "__newindex", newcclosure(function(self, key, value)
+                if M.enabled and M.noFlash and (key == "Enabled" or key == "Visible") and typeof(self) == "Instance" then
+                    local playerGui = getPlayerGui()
+                    if playerGui and self:IsDescendantOf(playerGui) and isFlashLike(self) then
                         return
                     end
-                    return oldNewIndex(self, key, value)
-                end))
-                flashHooked = true
-            else
-                flashConnection = flashGui:GetPropertyChangedSignal("Enabled"):Connect(newcclosure(function()
-                    if M.enabled and M.noFlash and flashGui.Enabled then
-                        flashGui.Enabled = false
-                    end
-                end))
-            end
+                end
+                return oldNewIndex(self, key, value)
+            end))
         end
+
+        flashHeartbeatConnection = RunService.Heartbeat:Connect(newcclosure(function(dt)
+            if not (M.enabled and M.noFlash) then
+                return
+            end
+            flashSweepTimer = flashSweepTimer + dt
+            if flashSweepTimer >= 0.2 then
+                flashSweepTimer = 0
+                refreshFlash()
+            end
+        end))
 
         refreshSmoke()
         refreshFlash()
@@ -193,4 +260,3 @@ return function(ctx)
 
     return M
 end
-
