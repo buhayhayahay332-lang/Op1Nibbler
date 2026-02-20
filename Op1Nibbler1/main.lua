@@ -61,7 +61,7 @@ local Runtime = {
     setreadonly = setreadonly or function()
     end
 }
-Runtime.InstanceNew = Runtime.cloneref(Instance.new)
+Runtime.InstanceNew = Instance.new
 
 local Services = {
     Lighting = Runtime.cloneref(game:GetService("Lighting")),
