@@ -25,10 +25,7 @@ return function(ctx)
     local initialized = false
     local smokeConnection = nil
 
-    local flashPlayerGuiConnection = nil
-    local flashGuiChildConnection = nil
     local flashEnabledConnection = nil
-    local flashAncestryConnection = nil
     local flashGui = nil
     local flashOriginalEnabled = nil
     local flashBypassActive = false
@@ -92,10 +89,6 @@ return function(ctx)
             flashEnabledConnection:Disconnect()
             flashEnabledConnection = nil
         end
-        if flashAncestryConnection then
-            flashAncestryConnection:Disconnect()
-            flashAncestryConnection = nil
-        end
     end
 
     local function forceFlashDisabled()
@@ -105,13 +98,12 @@ return function(ctx)
     end
 
     local function bindFlashInstance()
-        local latestFlash = getFlashGui()
-        if latestFlash == flashGui then
+        if flashGui and flashGui.Parent then
             return flashGui
         end
 
         clearFlashConnections()
-        flashGui = latestFlash
+        flashGui = getFlashGui()
 
         if not flashGui then
             return nil
@@ -122,17 +114,6 @@ return function(ctx)
         flashEnabledConnection = flashGui:GetPropertyChangedSignal("Enabled"):Connect(newcclosure(function()
             if M.enabled and M.noFlash and flashGui and flashGui.Parent and flashGui.Enabled then
                 forceFlashDisabled()
-            end
-        end))
-
-        flashAncestryConnection = flashGui.AncestryChanged:Connect(newcclosure(function(_, parent)
-            if not parent then
-                clearFlashConnections()
-                flashGui = nil
-                if flashBypassActive then
-                    bindFlashInstance()
-                    forceFlashDisabled()
-                end
             end
         end))
 
@@ -268,35 +249,7 @@ return function(ctx)
             end
         end))
 
-        local function bindFlashChildWatcher()
-            if flashGuiChildConnection then
-                flashGuiChildConnection:Disconnect()
-                flashGuiChildConnection = nil
-            end
-
-            local playerGui = getPlayerGui()
-            if not playerGui then
-                return
-            end
-
-            flashGuiChildConnection = playerGui.ChildAdded:Connect(newcclosure(function(child)
-                if child.Name == "Flash" then
-                    bindFlashInstance()
-                    refreshFlash()
-                end
-            end))
-        end
-
-        bindFlashChildWatcher()
         bindFlashInstance()
-
-        flashPlayerGuiConnection = LocalPlayer.ChildAdded:Connect(newcclosure(function(child)
-            if child:IsA("PlayerGui") then
-                bindFlashChildWatcher()
-                bindFlashInstance()
-                refreshFlash()
-            end
-        end))
 
         refreshSmoke()
         refreshFlash()
