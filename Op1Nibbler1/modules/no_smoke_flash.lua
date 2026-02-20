@@ -22,6 +22,8 @@ return function(ctx)
     local flashDescAddedConnection = nil
     local flashPlayerGuiConnection = nil
     local flashHeartbeatConnection = nil
+    local flashExactEnabledConnection = nil
+    local flashExactGui = nil
     local flashSweepTimer = 0
 
     local modifiedParts = {}
@@ -69,6 +71,33 @@ return function(ctx)
                 suppressFlashGui(desc)
             end
         end
+    end
+
+    local function bindExactFlashGuard()
+        if flashExactEnabledConnection then
+            flashExactEnabledConnection:Disconnect()
+            flashExactEnabledConnection = nil
+        end
+        flashExactGui = nil
+
+        local playerGui = getPlayerGui()
+        if not playerGui then
+            return
+        end
+
+        local flash = playerGui:FindFirstChild("Flash")
+        if not flash then
+            return
+        end
+
+        flashExactGui = flash
+        suppressFlashGui(flashExactGui)
+
+        flashExactEnabledConnection = flash:GetPropertyChangedSignal("Enabled"):Connect(newcclosure(function()
+            if M.enabled and M.noFlash and flashExactGui and flashExactGui.Parent then
+                flashExactGui.Enabled = false
+            end
+        end))
     end
 
     local function applyPart(part)
@@ -167,6 +196,10 @@ return function(ctx)
         end
         local playerGui = getPlayerGui()
         if playerGui then
+            local exactFlash = playerGui:FindFirstChild("Flash")
+            if exactFlash then
+                suppressFlashGui(exactFlash)
+            end
             applyNoFlash(playerGui)
         end
     end
@@ -189,6 +222,8 @@ return function(ctx)
                 flashDescAddedConnection = nil
             end
 
+            bindExactFlashGuard()
+
             local playerGui = getPlayerGui()
             if not playerGui then
                 return
@@ -197,6 +232,9 @@ return function(ctx)
             flashDescAddedConnection = playerGui.DescendantAdded:Connect(newcclosure(function(instance)
                 if M.enabled and M.noFlash and isFlashLike(instance) then
                     suppressFlashGui(instance)
+                end
+                if instance.Name == "Flash" and instance.Parent == playerGui then
+                    bindExactFlashGuard()
                 end
             end))
         end
@@ -227,6 +265,11 @@ return function(ctx)
         flashHeartbeatConnection = RunService.Heartbeat:Connect(newcclosure(function(dt)
             if not (M.enabled and M.noFlash) then
                 return
+            end
+            if not flashExactGui or not flashExactGui.Parent then
+                bindExactFlashGuard()
+            elseif flashExactGui.Enabled then
+                flashExactGui.Enabled = false
             end
             flashSweepTimer = flashSweepTimer + dt
             if flashSweepTimer >= 0.2 then
