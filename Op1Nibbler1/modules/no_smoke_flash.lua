@@ -26,12 +26,10 @@ return function(ctx)
     local smokeConnection = nil
 
     local flashEnabledConnection = nil
+    local flashPollConnection = nil
     local flashGui = nil
     local flashOriginalEnabled = nil
     local flashBypassActive = false
-    local flashHookTarget = nil
-    local flashNewIndexHookInstalled = false
-    local oldFlashNewIndex = nil
 
     local modifiedParts = {}
     local modifiedEmitters = {}
@@ -41,8 +39,7 @@ return function(ctx)
     local oldGetPropertyChangedSignal
     oldGetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
         if spoofedSmokeInstances[self] and M.enabled and M.noSmoke then
-            if property == "Size" or property == "Transparency" or property == "LocalTransparencyModifier" or property == "Color" or
-                property == "Enabled" then
+            if property == "Size" or property == "Transparency" or property == "LocalTransparencyModifier" or property == "Color"  then
                 return dummySignalEvent.Event
             end
         end
@@ -50,9 +47,8 @@ return function(ctx)
     end))
 
     local function getPlayerGui()
-        if not LocalPlayer then
-            return nil
-        end
+        LocalPlayer = Players.LocalPlayer or LocalPlayer
+        if not LocalPlayer then return nil end
         return LocalPlayer:FindFirstChildOfClass("PlayerGui")
     end
 
@@ -64,30 +60,14 @@ return function(ctx)
         return playerGui:FindFirstChild("Flash")
     end
 
-    local function ensureFlashNewIndexSpoof(target)
-        local hookmetamethod = Runtime.hookmetamethod or hookmetamethod
-        if not hookmetamethod or not target then
-            return
-        end
-
-        flashHookTarget = target
-        if flashNewIndexHookInstalled then
-            return
-        end
-
-        oldFlashNewIndex = hookmetamethod(target, "__newindex", newcclosure(function(self, key, value)
-            if self == flashHookTarget and M.enabled and M.noFlash and key == "Enabled" then
-                return
-            end
-            return oldFlashNewIndex(self, key, value)
-        end))
-        flashNewIndexHookInstalled = true
-    end
-
     local function clearFlashConnections()
         if flashEnabledConnection then
             flashEnabledConnection:Disconnect()
             flashEnabledConnection = nil
+        end
+        if flashPollConnection then
+            flashPollConnection:Disconnect()
+            flashPollConnection = nil
         end
     end
 
@@ -109,13 +89,16 @@ return function(ctx)
             return nil
         end
 
-        ensureFlashNewIndexSpoof(flashGui)
-
         flashEnabledConnection = flashGui:GetPropertyChangedSignal("Enabled"):Connect(newcclosure(function()
             if M.enabled and M.noFlash and flashGui and flashGui.Parent and flashGui.Enabled then
                 forceFlashDisabled()
             end
         end))
+
+        if flashPollConnection then
+            flashPollConnection:Disconnect()
+            flashPollConnection = nil
+        end
 
         return flashGui
     end
@@ -124,6 +107,26 @@ return function(ctx)
         bindFlashInstance()
 
         if active then
+            if not flashGui then
+                local RunService = Services.RunService or cloneref(game:GetService("RunService"))
+                flashPollConnection = RunService.Heartbeat:Connect(newcclosure(function()
+                    if not (M.enabled and M.noFlash) then
+                        if flashPollConnection then
+                            flashPollConnection:Disconnect()
+                            flashPollConnection = nil
+                        end
+                        return
+                    end
+                    bindFlashInstance()
+                    if flashGui then
+                        forceFlashDisabled()
+                        if flashPollConnection then
+                            flashPollConnection:Disconnect()
+                            flashPollConnection = nil
+                        end
+                    end
+                end))
+            end
             if not flashBypassActive and flashGui then
                 flashOriginalEnabled = flashGui.Enabled
             end
