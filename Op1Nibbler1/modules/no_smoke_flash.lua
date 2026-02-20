@@ -24,19 +24,23 @@ return function(ctx)
 
     local initialized = false
     local smokeConnection = nil
-    local flashDescAddedConnection = nil
-    local flashDescRemovingConnection = nil
     local flashPlayerGuiConnection = nil
+    local flashChildAddedConnection = nil
+    local flashEnabledConnection = nil
+    local flashAncestryConnection = nil
 
     local modifiedParts = {}
     local modifiedEmitters = {}
-    local trackedFlashInstances = {}
     local spoofedSmokeInstances = {}
     local spoofedFlashInstances = {}
     local dummySignalEvent = Instance_new("BindableEvent")
+
     local flashHookTarget = nil
     local flashNewIndexHookInstalled = false
     local oldFlashNewIndex = nil
+    local flashGui = nil
+    local flashOriginalEnabled = nil
+    local flashBypassActive = false
 
     local oldGetPropertyChangedSignal
     oldGetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
@@ -76,113 +80,97 @@ return function(ctx)
         return LocalPlayer:FindFirstChildOfClass("PlayerGui")
     end
 
-    local function isFlashLike(instance)
-        if not instance or typeof(instance) ~= "Instance" then
-            return false
+    local function getFlashGui()
+        local playerGui = getPlayerGui()
+        if not playerGui then
+            return nil
         end
-        local name = string.lower(instance.Name or "")
-        return name == "flash" or string.find(name, "flash", 1, true) ~= nil
+        return playerGui:FindFirstChild("Flash")
     end
 
-    local function suppressFlashGui(instance)
-        spoofedFlashInstances[instance] = true
-        pcall(function()
-            if instance:IsA("ScreenGui") then
-                instance.Enabled = false
-            end
-        end)
-        pcall(function()
-            if instance:IsA("GuiObject") then
-                instance.Visible = false
-            end
-        end)
+    local function clearFlashConnections()
+        if flashEnabledConnection then
+            flashEnabledConnection:Disconnect()
+            flashEnabledConnection = nil
+        end
+        if flashAncestryConnection then
+            flashAncestryConnection:Disconnect()
+            flashAncestryConnection = nil
+        end
     end
 
-    local function clearTrackedFlash(instance)
-        local tracked = trackedFlashInstances[instance]
-        if not tracked then
+    local function forceFlashDisabled()
+        if not flashGui or not flashGui.Parent then
             return
         end
-
-        if tracked.enabledConnection then
-            tracked.enabledConnection:Disconnect()
-        end
-        if tracked.visibleConnection then
-            tracked.visibleConnection:Disconnect()
-        end
-        if tracked.ancestryConnection then
-            tracked.ancestryConnection:Disconnect()
-        end
-
-        spoofedFlashInstances[instance] = nil
-        trackedFlashInstances[instance] = nil
+        spoofedFlashInstances[flashGui] = true
+        flashGui.Enabled = false
     end
 
-    local function trackFlashInstance(instance)
-        if not isFlashLike(instance) then
-            return
+    local function bindFlashInstance()
+        local latestFlash = getFlashGui()
+        if latestFlash == flashGui then
+            return flashGui
         end
 
-        if trackedFlashInstances[instance] then
-            if M.enabled and M.noFlash then
-                suppressFlashGui(instance)
-            end
-            return
+        if flashGui then
+            spoofedFlashInstances[flashGui] = nil
+        end
+        clearFlashConnections()
+        flashGui = latestFlash
+
+        if not flashGui then
+            return nil
         end
 
-        local tracked = {}
-        trackedFlashInstances[instance] = tracked
-        spoofedFlashInstances[instance] = true
-        if instance.Name == "Flash" then
-            ensureFlashNewIndexSpoof(instance)
-        end
+        ensureFlashNewIndexSpoof(flashGui)
 
-        tracked.ancestryConnection = instance.AncestryChanged:Connect(newcclosure(function(_, parent)
-            if not parent then
-                clearTrackedFlash(instance)
-                return
-            end
-
-            if M.enabled and M.noFlash then
-                suppressFlashGui(instance)
+        flashEnabledConnection = flashGui:GetPropertyChangedSignal("Enabled"):Connect(newcclosure(function()
+            if M.enabled and M.noFlash and flashGui and flashGui.Parent and flashGui.Enabled then
+                forceFlashDisabled()
             end
         end))
 
-        pcall(function()
-            tracked.enabledConnection = instance:GetPropertyChangedSignal("Enabled"):Connect(newcclosure(function()
-                if M.enabled and M.noFlash and instance.Parent and instance.Enabled then
-                    instance.Enabled = false
+        flashAncestryConnection = flashGui.AncestryChanged:Connect(newcclosure(function(_, parent)
+            if not parent then
+                spoofedFlashInstances[flashGui] = nil
+                clearFlashConnections()
+                flashGui = nil
+                if flashBypassActive then
+                    bindFlashInstance()
+                    forceFlashDisabled()
                 end
-            end))
-        end)
+            end
+        end))
 
-        pcall(function()
-            tracked.visibleConnection = instance:GetPropertyChangedSignal("Visible"):Connect(newcclosure(function()
-                if M.enabled and M.noFlash and instance.Parent and instance.Visible then
-                    instance.Visible = false
-                end
-            end))
-        end)
-
-        if M.enabled and M.noFlash then
-            suppressFlashGui(instance)
+        if flashBypassActive then
+            flashOriginalEnabled = flashGui.Enabled
+            forceFlashDisabled()
         end
+
+        return flashGui
     end
 
-    local function applyNoFlash(root)
-        if not root or not (M.enabled and M.noFlash) then
+    local function setFlashBypass(active)
+        bindFlashInstance()
+
+        if active then
+            if not flashBypassActive and flashGui then
+                flashOriginalEnabled = flashGui.Enabled
+            end
+            flashBypassActive = true
+            forceFlashDisabled()
             return
         end
 
-        if isFlashLike(root) then
-            trackFlashInstance(root)
-        end
-
-        for _, desc in ipairs(root:GetDescendants()) do
-            if isFlashLike(desc) then
-                trackFlashInstance(desc)
+        flashBypassActive = false
+        if flashGui then
+            spoofedFlashInstances[flashGui] = nil
+            if flashOriginalEnabled ~= nil then
+                flashGui.Enabled = flashOriginalEnabled
             end
         end
+        flashOriginalEnabled = nil
     end
 
     local function applyPart(part)
@@ -280,19 +268,7 @@ return function(ctx)
     end
 
     local function refreshFlash()
-        if not (M.enabled and M.noFlash) then
-            return
-        end
-        local playerGui = getPlayerGui()
-        if playerGui then
-            local exactFlash = playerGui:FindFirstChild("Flash")
-            if exactFlash then
-                ensureFlashNewIndexSpoof(exactFlash)
-                trackFlashInstance(exactFlash)
-                suppressFlashGui(exactFlash)
-            end
-            applyNoFlash(playerGui)
-        end
+        setFlashBypass(M.enabled and M.noFlash)
     end
 
     function M:Init()
@@ -307,18 +283,10 @@ return function(ctx)
             end
         end))
 
-        local function bindFlashWatcher()
-            if flashDescAddedConnection then
-                flashDescAddedConnection:Disconnect()
-                flashDescAddedConnection = nil
-            end
-            if flashDescRemovingConnection then
-                flashDescRemovingConnection:Disconnect()
-                flashDescRemovingConnection = nil
-            end
-
-            for instance in pairs(trackedFlashInstances) do
-                clearTrackedFlash(instance)
+        local function bindPlayerGuiWatcher()
+            if flashChildAddedConnection then
+                flashChildAddedConnection:Disconnect()
+                flashChildAddedConnection = nil
             end
 
             local playerGui = getPlayerGui()
@@ -326,24 +294,21 @@ return function(ctx)
                 return
             end
 
-            flashDescAddedConnection = playerGui.DescendantAdded:Connect(newcclosure(function(instance)
-                if M.enabled and M.noFlash and isFlashLike(instance) then
-                    trackFlashInstance(instance)
-                end
-            end))
-
-            flashDescRemovingConnection = playerGui.DescendantRemoving:Connect(newcclosure(function(instance)
-                if trackedFlashInstances[instance] then
-                    clearTrackedFlash(instance)
+            flashChildAddedConnection = playerGui.ChildAdded:Connect(newcclosure(function(child)
+                if child.Name == "Flash" then
+                    bindFlashInstance()
+                    refreshFlash()
                 end
             end))
         end
 
-        bindFlashWatcher()
+        bindPlayerGuiWatcher()
+        bindFlashInstance()
 
         flashPlayerGuiConnection = LocalPlayer.ChildAdded:Connect(newcclosure(function(child)
             if child:IsA("PlayerGui") then
-                bindFlashWatcher()
+                bindPlayerGuiWatcher()
+                bindFlashInstance()
                 refreshFlash()
             end
         end))
