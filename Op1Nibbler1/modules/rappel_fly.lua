@@ -1,16 +1,19 @@
-local cloneref = cloneref or function(obj) return obj end
-local clonefunc = clonefunc or function(fn) return fn end
-local newcclosure = newcclosure or function(fn) return fn end
-local hookfunction = hookfunction or function(f, r) return f end
-local replaceclosure = replaceclosure or function(f, r) return f end
+return function(ctx)
+local Runtime = ctx and ctx.Runtime or {}
+local cloneref = Runtime.cloneref or cloneref or function(obj) return obj end
+local clonefunc = Runtime.clonefunction or clonefunc or function(fn) return fn end
+local newcclosure = Runtime.newcclosure or newcclosure or function(fn) return fn end
+local hookfunction = Runtime.hookfunction or hookfunction or function(f, r) return f end
+local replaceclosure = Runtime.replaceclosure or replaceclosure or function(f, r) return f end
 
-local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
-local RunService = cloneref(game:GetService("RunService"))
-local UserInputService = cloneref(game:GetService("UserInputService"))
-local Players = cloneref(game:GetService("Players"))
+local Services = ctx and ctx.Services or {}
+local ReplicatedStorage = Services.ReplicatedStorage or cloneref(game:GetService("ReplicatedStorage"))
+local RunService = Services.RunService or cloneref(game:GetService("RunService"))
+local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
+local Players = Services.Players or cloneref(game:GetService("Players"))
 local LocalPlayer = Players.LocalPlayer
 local GrappleModule = require(ReplicatedStorage.Modules.Items.Item.Utility.GrapplingHook)
-local camera = cloneref(workspace).CurrentCamera
+local camera = (Services.Workspace or cloneref(workspace)).CurrentCamera
 
 -- locate the grapple start function (game updates renamed this a few times)
 local start_rappel_method = nil
@@ -348,3 +351,8 @@ UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
     end
 end))
 print("[Fly] Loaded")
+
+return {
+    Init = function() end
+}
+end
