@@ -1,10 +1,4 @@
-return function(ctx)
-    local Runtime = ctx and ctx.Runtime or {}
-    local cloneref = Runtime.cloneref or cloneref or function(obj)
-        return obj
-    end
-    local Services = ctx and ctx.Services or {}
-
+return function(_)
     local M = {
         enabled = false,
         brightness = 1,
@@ -14,7 +8,7 @@ return function(ctx)
         ambient = Color3.fromRGB(178, 178, 178)
     }
 
-    local lighting = Services.Lighting or cloneref(game:GetService("Lighting"))
+    local lighting = game:GetService("Lighting")
     local fullbrightSettings = {
         Brightness = 1,
         ClockTime = 12,

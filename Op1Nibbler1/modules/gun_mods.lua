@@ -11,25 +11,17 @@ return function(ctx)
         custom_zoom = 1.5
     }
 
-    local Runtime = ctx and ctx.Runtime or {}
-    local cloneref = Runtime.cloneref or cloneref or function(v)
-        return v
-    end
-    local clonefunction = Runtime.clonefunction or clonefunction or function(v)
-        return v
-    end
-    local newcclosure = Runtime.newcclosure or newcclosure or function(fn)
-        return fn
-    end
+    local cloneref = cloneref
+    local clonefunction = clonefunction
+    local newcclosure = newcclosure
     local pcall = clonefunction(pcall)
     local setmetatable = clonefunction(setmetatable)
     local typeof = clonefunction(typeof)
     local rawget = clonefunction(rawget)
-    local Services = ctx and ctx.Services or {}
 
-    local ReplicatedStorage = Services.ReplicatedStorage or cloneref(game:GetService("ReplicatedStorage"))
-    local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
-    local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
+    local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
+    local UserInputService = cloneref(game:GetService("UserInputService"))
+    local Workspace = cloneref(game:GetService("Workspace"))
 
     local GunModule = ctx.GunModule or require(ReplicatedStorage.Modules.Items.Item.Gun)
 
