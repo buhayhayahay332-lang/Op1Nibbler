@@ -1,20 +1,17 @@
-return function(ctx)
+return function(_)
     local USE_PROPERTY_SPOOFING = true
 
-    local Runtime = ctx and ctx.Runtime or {}
-
     -- services
-    local cloneref = Runtime.cloneref or cloneref or function(obj)
+    local cloneref = cloneref or function(obj)
         return obj
     end
-    local clonefunction = Runtime.clonefunction or clonefunction or function(fn)
+    local clonefunction = clonefunction or function(fn)
         return fn
     end
-    local Services = ctx and ctx.Services or {}
-    local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
-    local Players = Services.Players or cloneref(game:GetService("Players"))
-    local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
-    local RunService = Services.RunService or cloneref(game:GetService("RunService"))
+    local Workspace = cloneref(game:GetService("Workspace"))
+    local Players = cloneref(game:GetService("Players"))
+    local UserInputService = cloneref(game:GetService("UserInputService"))
+    local RunService = cloneref(game:GetService("RunService"))
     local task_delay = clonefunction(task.delay)
     local table_insert = clonefunction(table.insert)
     local tick = clonefunction(tick)
@@ -24,7 +21,7 @@ return function(ctx)
     local Vector3_new = clonefunction(Vector3.new)
     local Color3_fromRGB = clonefunction(Color3.fromRGB)
     local Instance_new = clonefunction(Instance.new)
-    local newcclosure = Runtime.newcclosure or newcclosure or function(f)
+    local newcclosure = newcclosure or function(f)
         return f
     end
 
@@ -52,7 +49,7 @@ return function(ctx)
     }
 
     -- hooks
-    local hookfunction = Runtime.hookfunction or hookfunction or function(f, r)
+    local hookfunction = hookfunction or function(f, r)
         return f
     end
 
@@ -65,12 +62,12 @@ return function(ctx)
         end))
 
     if USE_PROPERTY_SPOOFING then
-        local hookmetamethod = Runtime.hookmetamethod or hookmetamethod or function()
+        local hookmetamethod = hookmetamethod or function()
         end
-        local getrawmetatable = Runtime.getrawmetatable or getrawmetatable or function()
+        local getrawmetatable = getrawmetatable or function()
             return {}
         end
-        local setreadonly = Runtime.setreadonly or setreadonly or function()
+        local setreadonly = setreadonly or function()
         end
 
         local mt = getrawmetatable(game)

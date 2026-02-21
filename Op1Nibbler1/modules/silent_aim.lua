@@ -1,19 +1,11 @@
 return function(ctx)
-    local Runtime = ctx and ctx.Runtime or {}
-    local cloneref = Runtime.cloneref or cloneref or function(obj)
-        return obj
-    end
-    local clonefunction = Runtime.clonefunction or clonefunction or function(fn)
-        return fn
-    end
-    local newcclosure = Runtime.newcclosure or newcclosure or function(fn)
-        return fn
-    end
-    local Services = ctx and ctx.Services or {}
+    local cloneref = cloneref or function(obj) return obj end
+    local clonefunction = clonefunction or function(fn) return fn end
+    local newcclosure = newcclosure or function(fn) return fn end
 
-    local ReplicatedStorage = Services.ReplicatedStorage or cloneref(game:GetService("ReplicatedStorage"))
-    local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
-    local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
+    local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
+    local UserInputService = cloneref(game:GetService("UserInputService"))
+    local Workspace = cloneref(game:GetService("Workspace"))
 
     local GunModule = ctx.GunModule or require(ReplicatedStorage.Modules.Items.Item.Gun)
     local original_get_shoot_look = clonefunction(GunModule.get_shoot_look)
