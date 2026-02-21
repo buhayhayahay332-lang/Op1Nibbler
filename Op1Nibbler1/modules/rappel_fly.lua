@@ -322,11 +322,25 @@ local function start_flying()
         end)
     end
 
+    local accum = 0
     fly_connection = RunService.Heartbeat:Connect(newcclosure(function(dt)
         if not flying then
             fly_connection:Disconnect()
             return
         end
+
+        -- fail-safe: auto-stop if humanoid is dead
+        if tracked_humanoid and tracked_humanoid.Health <= 0 then
+            stop_flying()
+            return
+        end
+
+        -- throttle updates to ~30 Hz to reduce per-frame cost
+        accum = accum + dt
+        if accum < (1/30) then
+            return
+        end
+        accum = 0
 
         local dir = get_wasd_direction()
         if dir.Magnitude > 0 then
