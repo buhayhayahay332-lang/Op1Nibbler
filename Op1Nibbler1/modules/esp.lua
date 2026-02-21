@@ -142,7 +142,8 @@ return function(_)
         local _, onScreen = worldToScreen(worldPos)
         return onScreen
     end
-
+ 
+    
     local function createBox(color, thickness, transparency, zIndex)
         local box = Drawing.new("Square")
         box.Visible = false
