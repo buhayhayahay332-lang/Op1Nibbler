@@ -1,14 +1,16 @@
-return function(_)
-    local cloneref = cloneref or function(v)
+return function(ctx)
+    local Runtime = ctx and ctx.Runtime or {}
+    local cloneref = Runtime.cloneref or cloneref or function(v)
         return v
     end
-    local clonefunction = clonefunction or function(v)
+    local clonefunction = Runtime.clonefunction or clonefunction or function(v)
         return v
     end
+    local Services = ctx and ctx.Services or {}
 
-    local Workspace = cloneref(game:GetService("Workspace"))
-    local RunService = cloneref(game:GetService("RunService"))
-    local UserInputService = cloneref(game:GetService("UserInputService"))
+    local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
+    local RunService = Services.RunService or cloneref(game:GetService("RunService"))
+    local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
 
     local tickFn = tick
     local acos = math.acos
