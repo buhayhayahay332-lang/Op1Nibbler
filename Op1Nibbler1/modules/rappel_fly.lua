@@ -39,7 +39,6 @@ return function(ctx)
         pull_speed = 0.5,
         fly_key = Enum.KeyCode.G
     }
-    
 
     local M = {
         enabled = true,
@@ -67,8 +66,8 @@ return function(ctx)
         if not spoofed[instance] then
             spoofed[instance] = {}
         end
-        spoofed[instance][key] = fake_value -- what we show when read
-        instance[key] = real_value -- what we actually set
+        spoofed[instance][key] = fake_value
+        instance[key] = real_value
     end
 
     local function clear_spoof(instance, key)
@@ -80,27 +79,31 @@ return function(ctx)
         end
     end
 
-    -- __index spoofing: return fake original values when game reads our modified properties
+    -- __index spoofing
+    -- do NOT clonefunc mt.__index since its a C function not a Lua function
+    -- wrap fallback in pcall so if it errors for any reason other modules dont break
     local mt = getrawmetatable(game)
-    local old_index = clonefunc(mt.__index)
+    local old_index = mt.__index
     setreadonly(mt, false)
     mt.__index = newcclosure(function(self, key)
         if spoofed[self] and spoofed[self][key] ~= nil then
             return spoofed[self][key]
         end
-        return old_index(self, key)
+        local ok, result = pcall(old_index, self, key)
+        if ok then return result end
+        return nil
     end)
     setreadonly(mt, true)
 
-    -- __newindex spoofing: force our values back if game tries to override them
+    -- __newindex spoofing
     local old_newindex = hookmetamethod(game, "__newindex", newcclosure(function(self, key, value)
         if flying and spoofed[self] and spoofed[self][key] ~= nil then
-            return -- block game from writing back to our modified properties
+            return
         end
         return old_newindex(self, key, value)
     end))
 
-    -- GetPropertyChangedSignal: block signals for our modified properties
+    -- GetPropertyChangedSignal spoofing
     local old_gpcs = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
         if flying and spoofed[self] and spoofed[self][property] ~= nil then
             return dummy_event.Event
@@ -248,7 +251,6 @@ return function(ctx)
 
             pcall(function()
                 if self.move_position then
-                    -- clear spoofs before restoring so values go through
                     clear_spoof(self.move_position, "MaxVelocity")
                     clear_spoof(self.move_position, "Responsiveness")
                     self.move_position.MaxVelocity = math.huge
@@ -276,7 +278,6 @@ return function(ctx)
                 local humanoid = owner.instance:FindFirstChildOfClass("Humanoid")
                 local root = owner.instance:FindFirstChild("HumanoidRootPart")
                 if humanoid and root and root.Parent then
-                    -- clear spoofs before restoring
                     clear_spoof(humanoid, "WalkSpeed")
                     clear_spoof(humanoid, "JumpPower")
                     humanoid.WalkSpeed = old_walkspeed or 16
@@ -293,9 +294,7 @@ return function(ctx)
     end
 
     local function start_flying()
-        if not M.enabled then
-            return
-        end
+        if not M.enabled then return end
 
         flying = true
 
@@ -318,7 +317,6 @@ return function(ctx)
                 tracked_humanoid = humanoid
                 old_walkspeed = humanoid.WalkSpeed
                 old_jumppower = humanoid.JumpPower
-                -- spoof: game reads original values, we set 0
                 spoof_property(humanoid, "WalkSpeed", old_walkspeed, 0)
                 spoof_property(humanoid, "JumpPower", old_jumppower, 0)
             end
@@ -326,11 +324,12 @@ return function(ctx)
 
         pcall(function()
             if self.move_position then
-                -- spoof: game reads original values, we set modified ones
-                spoof_property(self.move_position, "MaxVelocity",
-                    (spoofed[self.move_position] and spoofed[self.move_position].MaxVelocity) or
-                    self.move_position.MaxVelocity, CONFIG.pull_speed)
-                spoof_property(self.move_position, "Responsiveness", self.move_position.Responsiveness, 10)
+                local fake_max = (spoofed[self.move_position] and spoofed[self.move_position].MaxVelocity)
+                    or self.move_position.MaxVelocity
+                local fake_resp = (spoofed[self.move_position] and spoofed[self.move_position].Responsiveness)
+                    or self.move_position.Responsiveness
+                spoof_property(self.move_position, "MaxVelocity", fake_max, CONFIG.pull_speed)
+                spoof_property(self.move_position, "Responsiveness", fake_resp, 10)
             end
         end)
 
@@ -385,9 +384,7 @@ return function(ctx)
     end))
 
     function M:Init()
-        if self._initialized then
-            return
-        end
+        if self._initialized then return end
 
         UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
             if processed or not M.enabled then return end
@@ -427,7 +424,7 @@ return function(ctx)
         self.pullSpeed = value
         if flying and grapple_self_ref and grapple_self_ref.move_position then
             local move_pos = grapple_self_ref.move_position
-            local fake = spoofed[move_pos] and spoofed[move_pos].MaxVelocity or move_pos.MaxVelocity
+            local fake = (spoofed[move_pos] and spoofed[move_pos].MaxVelocity) or move_pos.MaxVelocity
             spoof_property(move_pos, "MaxVelocity", fake, CONFIG.pull_speed)
         end
     end
