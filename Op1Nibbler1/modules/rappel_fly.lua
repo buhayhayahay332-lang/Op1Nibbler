@@ -46,17 +46,20 @@ local real_self_states = nil
 local real_owner_states = nil
 local tracked_humanoid = nil
 local dummy_event = Instance.new("BindableEvent")
-local spoofed_humanoid_props = {}
+-- weak-key table so destroyed humanoids don't leak
+local spoofed_humanoid_props = setmetatable({}, { __mode = "k" })
 
 -- optional property spoofing (mirror hitbox style) so WalkSpeed/JumpPower reads stay original while flying
 do
+    -- install once globally; avoid stacking hooks across reloads
     local hookmetamethod = Runtime.hookmetamethod or hookmetamethod
     local getrawmetatable = Runtime.getrawmetatable or getrawmetatable
     local setreadonly = Runtime.setreadonly or setreadonly
-    if hookmetamethod and getrawmetatable and setreadonly then
+    if hookmetamethod and getrawmetatable and setreadonly and not _G.RF_SPOOF_INSTALLED then
         local mt = getrawmetatable(game)
         if mt and mt.__index then
             local old_index = mt.__index
+            _G.RF_OLD_INDEX = _G.RF_OLD_INDEX or old_index
             setreadonly(mt, false)
             mt.__index = newcclosure(function(self, key)
                 local data = spoofed_humanoid_props[self]
@@ -67,9 +70,10 @@ do
                         return data.JumpPower
                     end
                 end
-                return old_index(self, key)
+                return _G.RF_OLD_INDEX(self, key)
             end)
             setreadonly(mt, true)
+            _G.RF_SPOOF_INSTALLED = true
         end
     end
 end
