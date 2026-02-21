@@ -332,6 +332,7 @@ local function start_flying()
         -- fail-safe: auto-stop if humanoid is dead
         if tracked_humanoid and tracked_humanoid.Health <= 0 then
             stop_flying()
+            print("stopped flying humanoid died")
             return
         end
 
@@ -371,8 +372,8 @@ LocalPlayer.CharacterRemoving:Connect(newcclosure(function(char)
         local humanoid = char:FindFirstChildOfClass("Humanoid")
         local root = char:FindFirstChild("HumanoidRootPart")
         if humanoid and root and root.Parent then
-            humanoid.WalkSpeed = old_walkspeed or 16
-            humanoid.JumpPower = old_jumppower or 50
+            humanoid.WalkSpeed = old_walkspeed 
+            humanoid.JumpPower = old_jumppower 
         end
         stop_flying()
         print("[Fly] Auto-stopped on character removing")
