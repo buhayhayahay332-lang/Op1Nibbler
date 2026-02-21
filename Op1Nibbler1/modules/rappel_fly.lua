@@ -46,6 +46,33 @@ local real_self_states = nil
 local real_owner_states = nil
 local tracked_humanoid = nil
 local dummy_event = Instance.new("BindableEvent")
+local spoofed_humanoid_props = {}
+
+-- optional property spoofing (mirror hitbox style) so WalkSpeed/JumpPower reads stay original while flying
+do
+    local hookmetamethod = Runtime.hookmetamethod or hookmetamethod
+    local getrawmetatable = Runtime.getrawmetatable or getrawmetatable
+    local setreadonly = Runtime.setreadonly or setreadonly
+    if hookmetamethod and getrawmetatable and setreadonly then
+        local mt = getrawmetatable(game)
+        if mt and mt.__index then
+            local old_index = mt.__index
+            setreadonly(mt, false)
+            mt.__index = newcclosure(function(self, key)
+                local data = spoofed_humanoid_props[self]
+                if data then
+                    if key == "WalkSpeed" then
+                        return data.WalkSpeed
+                    elseif key == "JumpPower" then
+                        return data.JumpPower
+                    end
+                end
+                return old_index(self, key)
+            end)
+            setreadonly(mt, true)
+        end
+    end
+end
 
 local function get_wasd_direction()
     local direction = Vector3.new(0, 0, 0)
@@ -229,6 +256,7 @@ local function stop_flying()
                 humanoid.WalkSpeed = old_walkspeed or 16
                 humanoid.JumpPower = old_jumppower or 50
             end
+            spoofed_humanoid_props[humanoid] = nil
         end)
     end
 
@@ -263,6 +291,10 @@ local function start_flying()
             old_jumppower = humanoid.JumpPower
             humanoid.WalkSpeed = 0
             humanoid.JumpPower = 0
+            spoofed_humanoid_props[humanoid] = {
+                WalkSpeed = old_walkspeed,
+                JumpPower = old_jumppower
+            }
         end
     end)
 
