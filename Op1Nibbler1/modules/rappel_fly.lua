@@ -81,7 +81,7 @@ return function(ctx)
 
     -- __index spoofing
     -- do NOT clonefunc mt.__index since its a C function not a Lua function
-    -- wrap fallback in pcall so if it errors for any reason other modules dont break
+    -- call it directly same as hitbox script does, no pcall wrapper
     local mt = getrawmetatable(game)
     local old_index = mt.__index
     setreadonly(mt, false)
@@ -89,9 +89,7 @@ return function(ctx)
         if spoofed[self] and spoofed[self][key] ~= nil then
             return spoofed[self][key]
         end
-        local ok, result = pcall(old_index, self, key)
-        if ok then return result end
-        return nil
+        return old_index(self, key)
     end)
     setreadonly(mt, true)
 
