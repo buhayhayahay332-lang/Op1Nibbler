@@ -349,7 +349,12 @@ return function(ctx, Modules)
         Text = "Enable",
         Default = Modules.RappelFly.enabled
     }):OnChanged(function(v)
-        Modules.RappelFly:SetEnabled(v)
+        local rf = Modules.RappelFly
+        if rf and rf.SetEnabled then
+            rf:SetEnabled(v)
+        else
+            rf.enabled = v
+        end
     end)
     RF:AddSlider("rf_speed", {
         Text = "Fly Speed",
@@ -358,7 +363,12 @@ return function(ctx, Modules)
         Max = 60,
         Rounding = 1
     }):OnChanged(function(v)
-        Modules.RappelFly:SetSpeed(v)
+        local rf = Modules.RappelFly
+        if rf and rf.SetSpeed then
+            rf:SetSpeed(v)
+        else
+            rf.speed = v
+        end
     end)
     RF:AddSlider("rf_pull", {
         Text = "Pull Speed",
@@ -367,7 +377,12 @@ return function(ctx, Modules)
         Max = 10,
         Rounding = 1
     }):OnChanged(function(v)
-        Modules.RappelFly:SetPullSpeed(v)
+        local rf = Modules.RappelFly
+        if rf and rf.SetPullSpeed then
+            rf:SetPullSpeed(v)
+        else
+            rf.pullSpeed = v
+        end
     end)
 
     local UIG = Tabs.UI:AddLeftGroupbox("Menu")
