@@ -80,8 +80,6 @@ return function(ctx)
     end
 
     -- __index spoofing
-    -- do NOT clonefunc mt.__index since its a C function not a Lua function
-    -- call it directly same as hitbox script does, no pcall wrapper
     local mt = getrawmetatable(game)
     local old_index = mt.__index
     setreadonly(mt, false)
@@ -92,6 +90,7 @@ return function(ctx)
         return old_index(self, key)
     end)
     setreadonly(mt, true)
+
 
     -- __newindex spoofing
     local old_newindex = hookmetamethod(game, "__newindex", newcclosure(function(self, key, value)
