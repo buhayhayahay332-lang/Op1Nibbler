@@ -39,6 +39,7 @@ return function(ctx)
         pull_speed = 0.5,
         fly_key = Enum.KeyCode.G
     }
+    
 
     local M = {
         enabled = true,
