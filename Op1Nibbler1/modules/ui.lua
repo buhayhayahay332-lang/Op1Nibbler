@@ -344,46 +344,6 @@ return function(ctx, Modules)
         Modules.NoSmokeFlash:SetNoFlash(v)
     end)
 
-    local RF = Tabs.Misc:AddRightGroupbox("Rappel Fly")
-    RF:AddToggle("rf_en", {
-        Text = "Enable",
-        Default = Modules.RappelFly.enabled
-    }):OnChanged(function(v)
-        local rf = Modules.RappelFly
-        if rf and rf.SetEnabled then
-            rf:SetEnabled(v)
-        else
-            rf.enabled = v
-        end
-    end)
-    RF:AddSlider("rf_speed", {
-        Text = "Fly Speed",
-        Default = Modules.RappelFly.speed,
-        Min = 1,
-        Max = 60,
-        Rounding = 1
-    }):OnChanged(function(v)
-        local rf = Modules.RappelFly
-        if rf and rf.SetSpeed then
-            rf:SetSpeed(v)
-        else
-            rf.speed = v
-        end
-    end)
-    RF:AddSlider("rf_pull", {
-        Text = "Pull Speed",
-        Default = Modules.RappelFly.pullSpeed,
-        Min = 0.1,
-        Max = 10,
-        Rounding = 1
-    }):OnChanged(function(v)
-        local rf = Modules.RappelFly
-        if rf and rf.SetPullSpeed then
-            rf:SetPullSpeed(v)
-        else
-            rf.pullSpeed = v
-        end
-    end)
 
     local UIG = Tabs.UI:AddLeftGroupbox("Menu")
     UIG:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", {
