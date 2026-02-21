@@ -99,7 +99,6 @@ return function(ctx)
         return old_newindex(self, key, value)
     end))
 
-    
     -- GetPropertyChangedSignal: block signals for our modified properties
     local old_gpcs = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
         if flying and spoofed[self] and spoofed[self][property] ~= nil then
