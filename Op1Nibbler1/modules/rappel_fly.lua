@@ -30,6 +30,12 @@ local config = {
     fly_key = Enum.KeyCode.G
 }
 
+local M = {
+    enabled = false,
+    speed = config.speed,
+    pullSpeed = config.pull_speed
+}
+
 local flying = false
 local fly_connection
 local grapple_self_ref = nil
@@ -150,7 +156,7 @@ end)
 -- direct assignment for can_rappel
 local old_can_rappel = clonefunc(GrappleModule.can_rappel)
 GrappleModule.can_rappel = newcclosure(function(self, owner)
-    if not flying then
+    if not M.enabled or not flying then
         return old_can_rappel(self, owner)
     end
 
@@ -336,7 +342,7 @@ if LocalPlayer.Character then
 end
 
 UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
-    if processed then return end
+    if processed or not M.enabled then return end
 
     if input.KeyCode == config.fly_key then
         if flying then
@@ -350,9 +356,34 @@ UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
         end
     end
 end))
+
+function M:SetEnabled(state)
+    self.enabled = state and true or false
+    if not self.enabled and flying then
+        stop_flying()
+    end
+end
+
+function M:SetSpeed(value)
+    self.speed = tonumber(value) or self.speed
+    config.speed = self.speed
+end
+
+function M:SetPullSpeed(value)
+    self.pullSpeed = tonumber(value) or self.pullSpeed
+    config.pull_speed = self.pullSpeed
+    if flying and grapple_self_ref and grapple_self_ref.move_position then
+        pcall(function()
+            grapple_self_ref.move_position.MaxVelocity = config.pull_speed
+        end)
+    end
+end
+
+function M:Init()
+    -- hooks are installed on require; nothing else needed here
+end
+
 print("[Fly] Loaded")
 
-return {
-    Init = function() end
-}
+return M
 end
